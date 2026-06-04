@@ -23,13 +23,6 @@
             <div>
                 {{ __('app.ribbon.platform') }}
             </div>
-
-            <div class="flex items-center gap-4">
-                <a href="{{ route('landing', ['lang' => app()->getLocale() === 'fr' ? 'en' : 'fr']) }}"
-                    class="hover:underline underline-offset-4">
-                    {{ __('app.ribbon.switch_to') }}
-                </a>
-            </div>
         </div>
     </div>
 

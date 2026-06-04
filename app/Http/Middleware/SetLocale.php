@@ -10,15 +10,7 @@ class SetLocale
 {
     public function handle(Request $request, Closure $next)
     {
-        $lang = $request->query('lang');
-
-        if (in_array($lang, ['fr', 'en'])) {
-            session(['app_lang' => $lang]);
-        }
-
-        $locale = session('app_lang', config('app.locale', 'fr'));
-
-        App::setLocale($locale);
+        App::setLocale('fr');
 
         return $next($request);
     }
