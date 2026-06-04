@@ -37,15 +37,15 @@
             </div>
             <div>
                 <div class="text-xs text-gray-500 uppercase tracking-wide">Type d'événement</div>
-                <div class="font-medium mt-1">{{ $incident->evenement->nom_evenement ?? '—' }}</div>
+                <div class="font-medium mt-1">{{ $incident->evenement?->nom_evenement ?? '—' }}</div>
             </div>
             <div>
-                <div class="text-xs text-gray-500 uppercase tracking-wide">Sévérité</div>
+                <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">Sévérité</div>
                 <div class="font-medium mt-1">{{ $incident->severite ?? '—' }}</div>
             </div>
             <div>
                 <div class="text-xs text-gray-500 uppercase tracking-wide">Localisation (Incident)</div>
-                <div class="font-medium mt-1">{{ $incident->province->nom_province ?? '—' }} / {{ $incident->localite ?? '—' }}</div>
+                <div class="font-medium mt-1">{{ $incident->province?->nom_province ?? '—' }} / {{ $incident->localite ?? '—' }}</div>
             </div>
         </div>
     </div>

@@ -151,8 +151,8 @@
         <div class="cause-box">
             CAUSE DU DÉPLACEMENT : 
             @if($mouvement->incident_id)
-                {{ strtoupper($mouvement->incident->evenement->nom_evenement ?? 'Incident ' . $mouvement->incident->code_incident) }}
-                <div style="font-size: 10px; font-weight: normal; color: #6b7280; margin-top: 4px;">Lien Alerte: #{{ $mouvement->incident->code_incident }}</div>
+                {{ strtoupper($mouvement->incident?->evenement?->nom_evenement ?? 'Incident ' . $mouvement->incident?->code_incident) }}
+                <div style="font-size: 10px; font-weight: normal; color: #6b7280; margin-top: 4px;">Lien Alerte: #{{ $mouvement->incident?->code_incident }}</div>
             @else
                 {{ strtoupper($mouvement->cause_deplacement ?? 'Non spécifiée') }}
             @endif
@@ -164,18 +164,18 @@
                 <div class="col" style="padding-right: 15px;">
                     <h3 style="font-size: 11px; color: #991b1b; text-transform: uppercase;">Provenance</h3>
                     <table class="data-table">
-                        <tr><td class="label">Province :</td><td class="value">{{ $mouvement->provinceProv->nom_province ?? '-' }}</td></tr>
-                        <tr><td class="label">Territoire :</td><td class="value">{{ $mouvement->territoireProv->nom_territoire ?? '-' }}</td></tr>
-                        <tr><td class="label">Zone de Santé :</td><td class="value">{{ $mouvement->zoneSanteProv->nom_zonesante ?? '-' }}</td></tr>
+                        <tr><td class="label">Province :</td><td class="value">{{ $mouvement->provinceProv?->nom_province ?? '-' }}</td></tr>
+                        <tr><td class="label">Territoire :</td><td class="value">{{ $mouvement->territoireProv?->nom_territoire ?? '-' }}</td></tr>
+                        <tr><td class="label">Zone de Santé :</td><td class="value">{{ $mouvement->zoneSanteProv?->nom_zonesante ?? '-' }}</td></tr>
                         <tr><td class="label">Localité :</td><td class="value">{{ $mouvement->localite_prov ?? '-' }}</td></tr>
                     </table>
                 </div>
                 <div class="col" style="padding-left: 15px; border-left: 1px dashed #e5e7eb;">
                     <h3 style="font-size: 11px; color: #065f46; text-transform: uppercase;">Accueil</h3>
                     <table class="data-table">
-                        <tr><td class="label">Province :</td><td class="value">{{ $mouvement->provinceAccl->nom_province ?? '-' }}</td></tr>
-                        <tr><td class="label">Territoire :</td><td class="value">{{ $mouvement->territoireAccl->nom_territoire ?? '-' }}</td></tr>
-                        <tr><td class="label">Zone de Santé :</td><td class="value">{{ $mouvement->zoneSanteAccl->nom_zonesante ?? '-' }}</td></tr>
+                        <tr><td class="label">Province :</td><td class="value">{{ $mouvement->provinceAccl?->nom_province ?? '-' }}</td></tr>
+                        <tr><td class="label">Territoire :</td><td class="value">{{ $mouvement->territoireAccl?->nom_territoire ?? '-' }}</td></tr>
+                        <tr><td class="label">Zone de Santé :</td><td class="value">{{ $mouvement->zoneSanteAccl?->nom_zonesante ?? '-' }}</td></tr>
                         <tr><td class="label">Localité :</td><td class="value">{{ $mouvement->localite_accl ?? '-' }}</td></tr>
                     </table>
                 </div>

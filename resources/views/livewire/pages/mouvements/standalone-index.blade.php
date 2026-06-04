@@ -82,11 +82,11 @@
                         </td>
                         <td class="px-6 py-4">
                             <div class="font-medium text-gray-900">{{ $m->localite_prov }}</div>
-                            <div class="text-xs text-gray-500">{{ $m->territoireProv->nom_territoire ?? '-' }}</div>
+                            <div class="text-xs text-gray-500">{{ $m->territoireProv?->nom_territoire ?? '-' }}</div>
                         </td>
                         <td class="px-6 py-4">
                             <div class="font-medium text-gray-900">{{ $m->localite_accl }}</div>
-                            <div class="text-xs text-gray-500">{{ $m->territoireAccl->nom_territoire ?? '-' }}</div>
+                            <div class="text-xs text-gray-500">{{ $m->territoireAccl?->nom_territoire ?? '-' }}</div>
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="font-bold text-onu">{{ number_format($m->estim_nbre_personnes) }}</div>

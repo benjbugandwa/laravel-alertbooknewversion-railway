@@ -202,7 +202,7 @@
         {{-- Résumé de l'alerte --}}
         <div class="highlight-box">
             <div class="event-highlight">
-                TYPE D'ÉVÉNEMENT : {{ strtoupper($incident->evenement->nom_evenement ?? 'Inconnu') }}
+                TYPE D'ÉVÉNEMENT : {{ strtoupper($incident->evenement?->nom_evenement ?? 'Inconnu') }}
             </div>
             <div class="grid-2">
                 <div class="col">
@@ -243,7 +243,7 @@
                         </tr>
                         <tr>
                             <td class="label">Assigné à :</td>
-                            <td class="value">{{ $incident->assignedTo->name ?? 'Non assigné' }}</td>
+                            <td class="value">{{ $incident->assignedTo?->name ?? 'Non assigné' }}</td>
                         </tr>
                     </table>
                 </div>
@@ -258,11 +258,11 @@
             <div class="grid-2">
                 <div class="col" style="padding-right: 20px;">
                     <table class="data-table">
-                        <tr><td class="label">Province :</td><td class="value">{{ $incident->province->nom_province ?? '-' }}</td></tr>
-                        <tr><td class="label">Territoire :</td><td class="value">{{ $incident->territoire->nom_territoire ?? '-' }}</td></tr>
-                        <tr><td class="label">Chefferie :</td><td class="value">{{ $incident->chefferie->nom_chefferie ?? '-' }}</td></tr>
-                        <tr><td class="label">Zone de Santé :</td><td class="value">{{ $incident->zoneSante->nom_zonesante ?? '-' }}</td></tr>
-                        <tr><td class="label">Aire de Santé :</td><td class="value">{{ $incident->aireSante->nom_airesante ?? '-' }}</td></tr>
+                        <tr><td class="label">Province :</td><td class="value">{{ $incident->province?->nom_province ?? '-' }}</td></tr>
+                        <tr><td class="label">Territoire :</td><td class="value">{{ $incident->territoire?->nom_territoire ?? '-' }}</td></tr>
+                        <tr><td class="label">Chefferie :</td><td class="value">{{ $incident->chefferie?->nom_chefferie ?? '-' }}</td></tr>
+                        <tr><td class="label">Zone de Santé :</td><td class="value">{{ $incident->zoneSante?->nom_zonesante ?? '-' }}</td></tr>
+                        <tr><td class="label">Aire de Santé :</td><td class="value">{{ $incident->aireSante?->nom_airesante ?? '-' }}</td></tr>
                         <tr><td class="label">Localité :</td><td class="value">{{ $incident->localite ?? '-' }}</td></tr>
                         @if($incident->latitude && $incident->longitude)
                         <tr><td class="label">Coordonnées :</td><td class="value">{{ $incident->latitude }}, {{ $incident->longitude }}</td></tr>
@@ -355,8 +355,8 @@
                     <tr>
                         <td>{{ optional($m->date_mouvement)->format('d/m/Y') }}</td>
                         <td>{{ $m->type_mouvement }}</td>
-                        <td>{{ $m->localite_prov ?? '-' }} ({{ $m->territoireProv->nom_territoire ?? '-' }})</td>
-                        <td>{{ $m->localite_accl ?? '-' }} ({{ $m->territoireAccl->nom_territoire ?? '-' }})</td>
+                        <td>{{ $m->localite_prov ?? '-' }} ({{ $m->territoireProv?->nom_territoire ?? '-' }})</td>
+                        <td>{{ $m->localite_accl ?? '-' }} ({{ $m->territoireAccl?->nom_territoire ?? '-' }})</td>
                         <td style="text-align: right;">{{ number_format($m->estim_nbre_menages) }}</td>
                         <td style="text-align: right;">{{ number_format($m->estim_nbre_personnes) }}</td>
                     </tr>
@@ -386,8 +386,8 @@
                     <tr>
                         <td>{{ optional($r->date_referencement)->format('d/m/Y') }}</td>
                         <td>
-                            <strong>{{ $r->provider->provider_name ?? 'N/A' }}</strong>
-                            <div style="font-size: 8px; color: #6b7280;">Contact: {{ $r->provider->focalpoint_name ?? '-' }}</div>
+                            <strong>{{ $r->provider?->provider_name ?? 'N/A' }}</strong>
+                            <div style="font-size: 8px; color: #6b7280;">Contact: {{ $r->provider?->focalpoint_name ?? '-' }}</div>
                         </td>
                         <td>{{ $r->type_reponse ?? '-' }}</td>
                         <td>{{ $r->statut_reponse ?? '-' }}</td>

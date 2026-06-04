@@ -76,14 +76,14 @@
             <div><span class="text-gray-500">Date de l'alerte :</span> <span
                     class="font-medium">{{ optional($incident->date_incident)->format('Y-m-d') }}</span></div>
             <div><span class="text-gray-500">Événement :</span> <span
-                    class="font-medium">{{ $incident->evenement->nom_evenement ?? '-' }}</span></div>
+                    class="font-medium">{{ $incident->evenement?->nom_evenement ?? '-' }}</span></div>
 
-            <div><span class="text-gray-500">Province :</span> <span class="font-medium">{{ $incident->province->nom_province ?? '-' }}</span></div>
-            <div><span class="text-gray-500">Territoire :</span> <span class="font-medium">{{ $incident->territoire->nom_territoire ?? '-' }}</span></div>
-            <div><span class="text-gray-500">Chefferie :</span> <span class="font-medium">{{ $incident->chefferie->nom_chefferie ?? '-' }}</span></div>
-            <div><span class="text-gray-500">Groupement :</span> <span class="font-medium">{{ $incident->groupement->nom_groupement ?? '-' }}</span></div>
-            <div><span class="text-gray-500">Zone de santé :</span> <span class="font-medium">{{ $incident->zoneSante->nom_zonesante ?? '-' }}</span></div>
-            <div><span class="text-gray-500">Aire de santé :</span> <span class="font-medium">{{ $incident->aireSante->nom_airesante ?? '-' }}</span></div>
+            <div><span class="text-gray-500">Province :</span> <span class="font-medium">{{ $incident->province?->nom_province ?? '-' }}</span></div>
+            <div><span class="text-gray-500">Territoire :</span> <span class="font-medium">{{ $incident->territoire?->nom_territoire ?? '-' }}</span></div>
+            <div><span class="text-gray-500">Chefferie :</span> <span class="font-medium">{{ $incident->chefferie?->nom_chefferie ?? '-' }}</span></div>
+            <div><span class="text-gray-500">Groupement :</span> <span class="font-medium">{{ $incident->groupement?->nom_groupement ?? '-' }}</span></div>
+            <div><span class="text-gray-500">Zone de santé :</span> <span class="font-medium">{{ $incident->zoneSante?->nom_zonesante ?? '-' }}</span></div>
+            <div><span class="text-gray-500">Aire de santé :</span> <span class="font-medium">{{ $incident->aireSante?->nom_airesante ?? '-' }}</span></div>
 
             <div class="md:col-span-2"><span class="text-gray-500">Localité :</span> <span
                     class="font-medium">{{ $incident->localite ?? '-' }}</span></div>
