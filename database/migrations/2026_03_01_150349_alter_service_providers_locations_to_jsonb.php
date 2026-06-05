@@ -6,6 +6,10 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration {
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // PostgreSQL : convertir provider_location (string) -> jsonb
         DB::statement("
             ALTER TABLE service_providers
@@ -33,6 +37,9 @@ return new class extends Migration {
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
         DB::statement("ALTER TABLE service_providers ALTER COLUMN provider_location TYPE varchar(255)");
         DB::statement("ALTER TABLE service_providers ALTER COLUMN type_services_proposes TYPE text");
     }

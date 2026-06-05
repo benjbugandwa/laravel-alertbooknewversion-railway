@@ -7,6 +7,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // On PostgreSQL, on synchronise la séquence uniquement avec les codes numériques commençant par 'ALT-'
         // S'il n'y a pas d'incidents (base de données vide), on ne fait rien pour éviter setval(..., 0)
         DB::statement("
@@ -28,6 +32,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // Rien à faire
     }
 };

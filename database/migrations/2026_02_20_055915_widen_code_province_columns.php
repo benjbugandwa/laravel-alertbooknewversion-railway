@@ -7,6 +7,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // 1) Drop FK constraints (si elles existent)
         DB::statement('ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_code_province_foreign"');
         //  DB::statement('ALTER TABLE "incidents" DROP CONSTRAINT IF EXISTS "incidents_code_province_foreign"');
@@ -31,6 +35,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // Optionnel : revenir en varchar(3) (pas conseillé)
         DB::statement('ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_code_province_foreign"');
         // DB::statement('ALTER TABLE "incidents" DROP CONSTRAINT IF EXISTS "incidents_code_province_foreign"');

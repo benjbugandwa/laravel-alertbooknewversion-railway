@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // 1) Ajouter une nouvelle colonne uuid
         DB::statement('ALTER TABLE audit_logs ADD COLUMN model_id_uuid uuid NULL');
 
@@ -31,6 +35,9 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
         // Retour arrière : recréer integer (perte de données possible)
         DB::statement('ALTER TABLE audit_logs ADD COLUMN model_id_int integer NULL');
         DB::statement('ALTER TABLE audit_logs DROP COLUMN model_id');

@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('audit_logs', function (Blueprint $table) {
             // Ton script : id integer PRIMARY KEY
-            $table->bigIncrements('id')->primary();
+            $table->bigIncrements('id');
 
             // FK utilisateur (users.id integer)
             $table->unsignedBigInteger('user_id')->nullable();
