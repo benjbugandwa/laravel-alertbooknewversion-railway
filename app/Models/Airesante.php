@@ -17,7 +17,7 @@ class Airesante extends Model
 
     public function zonesante(): BelongsTo
     {
-        return $this->belongsTo(Zonesante::class, 'code_zonesante', 'code_zonesante');
+        return $this->belongsTo(ZoneSante::class, 'code_zonesante', 'code_zonesante');
     }
 
     public function incidents(): HasMany

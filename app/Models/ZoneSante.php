@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Zonesante extends Model
+class ZoneSante extends Model
 {
     protected $table = 'zonesantes';
     protected $primaryKey = 'code_zonesante';
