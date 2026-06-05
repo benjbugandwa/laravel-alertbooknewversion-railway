@@ -57,7 +57,7 @@
                             <div class="min-w-0">
                                 <div class="flex items-center gap-2">
                                     <div class="text-sm font-semibold text-gray-900">
-                                        {{ $n->author->name ?? '—' }}
+                                        {{ $n->author_name }}
                                     </div>
 
                                     @if ($n->is_confidential)
@@ -128,8 +128,8 @@
                     </label>
 
                     <div>
-                        <input type="file" wire:model="editFile" class="block w-full text-sm">
-                        @error('editFile')
+                        <input type="file" wire:model="file" class="block w-full text-sm">
+                        @error('file')
                             <div class="text-sm text-red-600">{{ $message }}</div>
                         @enderror
                         <div class="text-xs text-gray-500 mt-1">Remplacer la pièce jointe (optionnel).</div>

@@ -175,7 +175,8 @@ class IncidentReferencements extends Component
 
     /* ------------------------------ Providers (filtered) ------------------------------ */
 
-    public function getProvidersFilteredProperty()
+    #[Computed]
+    public function providersFiltered()
     {
         $type = $this->form['type_reponse'] ?? null;
         if (!$type) {
@@ -195,7 +196,8 @@ class IncidentReferencements extends Component
             ->values();
     }
 
-    public function getSelectedProviderProperty(): ?ServiceProvider
+    #[Computed]
+    public function selectedProvider(): ?ServiceProvider
     {
         $id = $this->form['provider_id'] ?? null;
         if (!$id) return null;
@@ -372,7 +374,8 @@ class IncidentReferencements extends Component
         $this->dispatch('toast', message: "Structure créée et sélectionnée.", type: 'success', duration: 5000);
     }
 
-    public function getReferencementsProperty()
+    #[Computed]
+    public function referencements()
     {
         return \App\Models\Referencement::query()
             ->with(['provider:id,provider_name,provider_location,focalpoint_number', 'author:id,name'])

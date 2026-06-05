@@ -47,16 +47,16 @@
                                 </div>
 
                                 <div class="text-sm text-gray-700 mt-1">
-                                    <span class="font-medium">{{ $r->provider->provider_name ?? '-' }}</span>
+                                    <span class="font-medium">{{ $r->provider?->provider_name ?? '-' }}</span>
                                     <span class="text-gray-500">—
-                                        {{ is_array($r->provider->provider_location) ? implode(', ', $r->provider->provider_location) : $r->provider->provider_location ?? '-' }}</span>
+                                        {{ is_array($r->provider?->provider_location) ? implode(', ', $r->provider?->provider_location) : $r->provider?->provider_location ?? '-' }}</span>
 
                                 </div>
 
                                 <div class="text-xs text-gray-500 mt-1">
                                     {{ optional($r->date_referencement)->format('Y-m-d') }} •
                                     {{ $r->type_reponse }} •
-                                    Ajouté par {{ $r->author->name ?? '—' }}
+                                    Ajouté par {{ $r->author?->name ?? '—' }}
                                 </div>
                             </div>
 
