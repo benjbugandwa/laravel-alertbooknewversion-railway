@@ -120,18 +120,20 @@
                             @enderror
                         </div>
 
-                        <div class="space-y-1">
-                            <label class="text-sm font-medium text-gray-700">Statut réponse *</label>
-                            <select wire:model.defer="form.statut_reponse"
-                                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
-                                @foreach ($this->statusOptions as $st)
-                                    <option value="{{ $st }}">{{ $st }}</option>
-                                @endforeach
-                            </select>
-                            @error('form.statut_reponse')
-                                <div class="text-sm text-red-600">{{ $message }}</div>
-                            @enderror
-                        </div>
+                        @if ($editing)
+                            <div class="space-y-1">
+                                <label class="text-sm font-medium text-gray-700">Statut réponse *</label>
+                                <select wire:model.defer="form.statut_reponse"
+                                    class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
+                                    @foreach ($this->statusOptions as $st)
+                                        <option value="{{ $st }}">{{ $st }}</option>
+                                    @endforeach
+                                </select>
+                                @error('form.statut_reponse')
+                                    <div class="text-sm text-red-600">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        @endif
 
                         <div class="space-y-1 md:col-span-2">
                             <label class="text-sm font-medium text-gray-700">Type de réponse *</label>

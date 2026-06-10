@@ -174,7 +174,10 @@
             <tr>
                 <td class="logo-box">
                     @php
-                        $logoPath = public_path('images/logo/logo-main.png');
+                        $logoPath = public_path('images/logo/logo-ok-cluster.png');
+                        if (!file_exists($logoPath)) {
+                            $logoPath = public_path('images/logo/logo-main.png');
+                        }
                         if (!file_exists($logoPath)) {
                             $logoPath = public_path('images/logo/logo-main_.png');
                         }

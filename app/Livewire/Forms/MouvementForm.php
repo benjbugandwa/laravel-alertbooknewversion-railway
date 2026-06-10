@@ -49,7 +49,15 @@ class MouvementForm extends Form
             
             'code_province_accl' => ['required', 'string'],
             'code_territoire_accl' => ['required', 'string'],
-            'code_zonesante_accl' => ['nullable', 'string', 'different:code_zonesante_prov'],
+            'code_zonesante_accl' => [
+                'nullable',
+                'string',
+                function ($attribute, $value, $fail) {
+                    if (!empty($value) && !empty($this->code_zonesante_prov) && $value === $this->code_zonesante_prov) {
+                        $fail("La zone de santé d'accueil ne peut pas être la même que celle de provenance.");
+                    }
+                }
+            ],
             'localite_accl' => ['required', 'string'],
             
             'type_logement' => ['nullable', 'in:Site spontané,Centre collectif,Famille accueil,Autre'],

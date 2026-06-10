@@ -192,9 +192,12 @@ class Index extends Component
             return;
         }
 
+        // Set incident_id on the form before validation so that required_without:incident_id is satisfied
+        $this->form->incident_id = $this->incident->id;
+
         $this->form->validate();
 
-        $data = $this->form->all();
+        $data = $this->form->getData();
         
         // Forcer les valeurs de provenance si l'utilisateur n'est pas superadmin
         if (auth()->user()->user_role !== 'superadmin') {
@@ -207,7 +210,6 @@ class Index extends Component
             $mouvement->update($data);
             $this->dispatch('toast', message: 'Mouvement mis à jour avec succès.', type: 'success');
         } else {
-            $data['incident_id'] = $this->incident->id;
             $data['created_by'] = auth()->id();
             Mouvement::create($data);
             $this->dispatch('toast', message: 'Mouvement ajouté avec succès.', type: 'success');
