@@ -49,15 +49,7 @@ class MouvementForm extends Form
             
             'code_province_accl' => ['required', 'string'],
             'code_territoire_accl' => ['required', 'string'],
-            'code_zonesante_accl' => [
-                'nullable',
-                'string',
-                function ($attribute, $value, $fail) {
-                    if (!empty($value) && !empty($this->code_zonesante_prov) && $value === $this->code_zonesante_prov) {
-                        $fail("La zone de santé d'accueil ne peut pas être la même que celle de provenance.");
-                    }
-                }
-            ],
+            'code_zonesante_accl' => ['nullable', 'string'],
             'localite_accl' => ['required', 'string'],
             
             'type_logement' => ['nullable', 'in:Site spontané,Centre collectif,Famille accueil,Autre'],
@@ -91,7 +83,6 @@ class MouvementForm extends Form
             'date_mouvement.before_or_equal' => 'La date du mouvement ne peut pas être dans le futur.',
             'localite_prov.different' => 'La localité de provenance doit être différente de la localité d\'accueil.',
             'localite_accl.different' => 'La localité d\'accueil doit être différente de la localité de provenance.',
-            'code_zonesante_accl.different' => 'La zone de santé d\'accueil ne peut pas être la même que celle de provenance.',
             'estim_nbre_menages.min' => 'Le nombre de ménages doit être au moins de 1.',
             'estim_nbre_personnes.min' => 'Le nombre de personnes doit être au moins de 1.',
             'estim_nbre_personnes.gte' => 'Le nombre de personnes ne peut pas être inférieur au nombre de ménages.',
