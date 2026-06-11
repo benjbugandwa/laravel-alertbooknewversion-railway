@@ -457,8 +457,20 @@
 
                     {{-- 4. Auteur présumé et Source d'information --}}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <x-ui-input label="Auteur présumé (optionnel)" wire:model.defer="form.auteur_presume"
-                            name="auteur_presume" />
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium text-gray-700">Auteur présumé (optionnel)</label>
+                            <input list="auteurs-list" wire:model.defer="form.auteur_presume"
+                                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-onu"
+                                placeholder="Saisir ou choisir un auteur présumé...">
+                            <datalist id="auteurs-list">
+                                @foreach ($this->listAuteurs as $aut)
+                                    <option value="{{ $aut->denomination_auteur }} ({{ $aut->code_auteur }})"></option>
+                                @endforeach
+                            </datalist>
+                            @error('form.auteur_presume')
+                                <div class="text-sm text-red-600">{{ $message }}</div>
+                            @enderror
+                        </div>
                         <div class="space-y-1">
                             <label class="text-sm font-medium text-gray-700">Source d'information *</label>
                             <select wire:model.defer="form.source_info"

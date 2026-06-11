@@ -263,6 +263,12 @@ class Index extends Component
     }
 
     #[Computed]
+    public function listAuteurs()
+    {
+        return \App\Models\Auteur::orderBy('denomination_auteur')->get();
+    }
+
+    #[Computed]
     public function survivants()
     {
         return \App\Models\Survivant::query()

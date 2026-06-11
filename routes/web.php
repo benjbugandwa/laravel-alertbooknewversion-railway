@@ -97,6 +97,7 @@ Route::middleware(['auth', 'active'])->get('/whoami', function () {
 
 Route::middleware(['auth', 'active', 'role:superadmin'])->group(function () {
     Route::get('/users', UsersIndex::class)->name('users.index');
+    Route::get('/auteurs', \App\Livewire\Pages\Auteurs\Index::class)->name('auteurs.index');
 });
 
 

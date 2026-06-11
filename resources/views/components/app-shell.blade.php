@@ -92,6 +92,12 @@
                         Utilisateurs
                     </x-nav-link>
 
+                    @if (auth()->user()->user_role === 'superadmin')
+                        <x-nav-link href="{{ route('auteurs.index') }}" :active="request()->routeIs('auteurs.*')" icon="user-cog">
+                            Auteurs présumés
+                        </x-nav-link>
+                    @endif
+
 
 
                     <x-nav-link href="{{ route('supervision.performance') }}" :active="request()->routeIs('supervision.performance')" icon="chart-line">
@@ -151,6 +157,11 @@
                             icon="building-2" @click="close()">Organisations</x-nav-link>
                         <x-nav-link href="{{ route('users.index') }}" :active="false"
                             icon="users" @click="close()">Utilisateurs</x-nav-link>
+
+                        @if (auth()->user()->user_role === 'superadmin')
+                            <x-nav-link href="{{ route('auteurs.index') }}" :active="request()->routeIs('auteurs.*')"
+                                icon="user-cog" @click="close()">Auteurs présumés</x-nav-link>
+                        @endif
                         <x-nav-link href="{{ route('supervision.performance') }}" :active="false"
                             icon="chart-line" @click="close()">Performance superviseurs</x-nav-link>
                         <x-nav-link href="{{ route('profile') }}" :active="false" icon="user-pen" @click="close()">Mon
