@@ -75,6 +75,10 @@
                             icon="truck">Déplacements</x-nav-link>
                     @endif
 
+                    <x-nav-link href="{{ route('victimes.index') }}" :active="request()->routeIs('victimes.*')" icon="users">
+                        Victimes des violations
+                    </x-nav-link>
+
 
                     <x-nav-link href="{{ route('service-providers.index') }}" :active="request()->routeIs('providers.*')" icon="building-2">
                         Structures de prise en charge
@@ -139,6 +143,8 @@
                             <x-nav-link href="{{ route('mouvements.standalone') }}" :active="false"
                                 icon="truck" @click="close()">Déplacements</x-nav-link>
                         @endif
+                        <x-nav-link href="{{ route('victimes.index') }}" :active="false"
+                            icon="users" @click="close()">Victimes des violations</x-nav-link>
                         <x-nav-link href="{{ route('service-providers.index') }}" :active="false"
                             icon="building-2" @click="close()">Structures</x-nav-link>
                         <x-nav-link href="{{ route('organisations.index') }}" :active="false"

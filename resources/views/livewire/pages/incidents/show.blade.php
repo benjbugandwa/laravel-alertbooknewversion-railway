@@ -133,9 +133,17 @@
                                         @endif
                                     </div>
 
-                                    <div class="text-xs text-gray-500 whitespace-nowrap">
-                                        @if (!empty($v->pivot?->created_at))
-                                            {{ \Carbon\Carbon::parse($v->pivot->created_at)->format('Y-m-d H:i') }}
+                                    <div class="flex flex-col items-end gap-1.5">
+                                        <div class="text-xs text-gray-500 whitespace-nowrap">
+                                            @if (!empty($v->pivot?->created_at))
+                                                {{ \Carbon\Carbon::parse($v->pivot->created_at)->format('Y-m-d H:i') }}
+                                            @endif
+                                        </div>
+                                        @if (auth()->user()->user_role !== 'moniteur')
+                                            <a href="{{ route('victimes.index', ['incident' => $incident->id, 'add_for_violence' => $v->id]) }}"
+                                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-onu/20 text-[11px] font-semibold text-onu hover:bg-onu/5 bg-white transition shadow-sm">
+                                                👥 Saisir victimes
+                                            </a>
                                         @endif
                                     </div>
                                 </div>

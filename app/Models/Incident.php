@@ -141,4 +141,9 @@ class Incident extends Model
     {
         return $this->hasMany(Mouvement::class, 'incident_id', 'id');
     }
+
+    public function victimes(): HasMany
+    {
+        return $this->hasMany(Victime::class, 'incident_id', 'id');
+    }
 }

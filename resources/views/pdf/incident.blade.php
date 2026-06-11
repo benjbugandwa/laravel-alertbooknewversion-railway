@@ -401,6 +401,69 @@
         </div>
         @endif
 
+        {{-- Section VI: Victimes des Violations --}}
+        @if($incident->victimes && $incident->victimes->count() > 0)
+        <div class="section">
+            <div class="section-header">
+                <h2>VI. Victimes des Violations</h2>
+            </div>
+            <table class="list-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="font-size: 9px; font-weight: bold; border: 1px solid #e5e7eb;">Violence</th>
+                        <th rowspan="2" style="font-size: 9px; font-weight: bold; border: 1px solid #e5e7eb;">Profil</th>
+                        <th colspan="5" style="font-size: 9px; font-weight: bold; text-align: center; background-color: #fee2e2; border: 1px solid #e5e7eb;">Femmes (Tranches d'âge)</th>
+                        <th colspan="5" style="font-size: 9px; font-weight: bold; text-align: center; background-color: #e0f2fe; border: 1px solid #e5e7eb;">Hommes (Tranches d'âge)</th>
+                        <th rowspan="2" style="font-size: 9px; font-weight: bold; border: 1px solid #e5e7eb;">Total</th>
+                    </tr>
+                    <tr style="background-color: #f9fafb;">
+                        <th style="font-size: 8px; text-align: center; border: 1px solid #e5e7eb;">0-4</th>
+                        <th style="font-size: 8px; text-align: center; border: 1px solid #e5e7eb;">5-11</th>
+                        <th style="font-size: 8px; text-align: center; border: 1px solid #e5e7eb;">12-17</th>
+                        <th style="font-size: 8px; text-align: center; border: 1px solid #e5e7eb;">18-59</th>
+                        <th style="font-size: 8px; text-align: center; border: 1px solid #e5e7eb;">60+</th>
+                        <th style="font-size: 8px; text-align: center; border: 1px solid #e5e7eb;">0-4</th>
+                        <th style="font-size: 8px; text-align: center; border: 1px solid #e5e7eb;">5-11</th>
+                        <th style="font-size: 8px; text-align: center; border: 1px solid #e5e7eb;">12-17</th>
+                        <th style="font-size: 8px; text-align: center; border: 1px solid #e5e7eb;">18-59</th>
+                        <th style="font-size: 8px; text-align: center; border: 1px solid #e5e7eb;">60+</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($incident->victimes as $v)
+                        @php
+                            $totalRow = ($v->nbre_femme_0a4ans ?? 0) +
+                                        ($v->nbre_femme_5a11ans ?? 0) +
+                                        ($v->nbre_femme_12a17ans ?? 0) +
+                                        ($v->nbre_femme_18a59ans ?? 0) +
+                                        ($v->nbre_femme_6Oansouplus ?? 0) +
+                                        ($v->nbre_homme_0a4ans ?? 0) +
+                                        ($v->nbre_homme_5a11ans ?? 0) +
+                                        ($v->nbre_homme_12a17ans ?? 0) +
+                                        ($v->nbre_homme_18a59ans ?? 0) +
+                                        ($v->nbre_homme_6Oansouplus ?? 0);
+                        @endphp
+                        <tr>
+                            <td style="font-size: 9px; border: 1px solid #e5e7eb;"><strong>{{ $v->violence?->violence_name ?? '-' }}</strong></td>
+                            <td style="font-size: 9px; border: 1px solid #e5e7eb;">{{ $v->profile_victimes }}</td>
+                            <td style="text-align: center; font-size: 9px; border: 1px solid #e5e7eb;">{{ $v->nbre_femme_0a4ans ?? 0 }}</td>
+                            <td style="text-align: center; font-size: 9px; border: 1px solid #e5e7eb;">{{ $v->nbre_femme_5a11ans ?? 0 }}</td>
+                            <td style="text-align: center; font-size: 9px; border: 1px solid #e5e7eb;">{{ $v->nbre_femme_12a17ans ?? 0 }}</td>
+                            <td style="text-align: center; font-size: 9px; border: 1px solid #e5e7eb;">{{ $v->nbre_femme_18a59ans ?? 0 }}</td>
+                            <td style="text-align: center; font-size: 9px; border: 1px solid #e5e7eb;">{{ $v->nbre_femme_6Oansouplus ?? 0 }}</td>
+                            <td style="text-align: center; font-size: 9px; border: 1px solid #e5e7eb;">{{ $v->nbre_homme_0a4ans ?? 0 }}</td>
+                            <td style="text-align: center; font-size: 9px; border: 1px solid #e5e7eb;">{{ $v->nbre_homme_5a11ans ?? 0 }}</td>
+                            <td style="text-align: center; font-size: 9px; border: 1px solid #e5e7eb;">{{ $v->nbre_homme_12a17ans ?? 0 }}</td>
+                            <td style="text-align: center; font-size: 9px; border: 1px solid #e5e7eb;">{{ $v->nbre_homme_18a59ans ?? 0 }}</td>
+                            <td style="text-align: center; font-size: 9px; border: 1px solid #e5e7eb;">{{ $v->nbre_homme_6Oansouplus ?? 0 }}</td>
+                            <td style="text-align: center; font-size: 9px; font-weight: bold; border: 1px solid #e5e7eb;">{{ $totalRow }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endif
+
     </div>
 
     <div class="footer">

@@ -31,6 +31,7 @@ class IncidentPrintController extends Controller
             'referencements.provider', // provider pour focal point
             'mouvements.territoireProv',
             'mouvements.territoireAccl',
+            'victimes.violence',
         ]);
 
         // Préparer la carte en base64 (plus fiable pour DomPDF)
