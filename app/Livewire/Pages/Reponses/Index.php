@@ -49,7 +49,8 @@ class Index extends Component
         $user = Auth::user();
 
         // Load incidents list for selection dropdown
-        $incidentsQuery = Incident::orderByDesc('created_at');
+        $incidentsQuery = Incident::orderByDesc('created_at')
+            ->where('statut_incident', '!=', 'En attente');
         if ($user->user_role !== 'superadmin' && $user->code_province) {
             $incidentsQuery->where('code_province', $user->code_province);
         }
@@ -61,8 +62,9 @@ class Index extends Component
         }
         
         if (!$this->incident) {
-            // Default to most recent incident
-            $first = Incident::orderByDesc('created_at');
+            // Default to most recent validated / not-pending incident
+            $first = Incident::orderByDesc('created_at')
+                ->where('statut_incident', '!=', 'En attente');
             if ($user->user_role !== 'superadmin' && $user->code_province) {
                 $first->where('code_province', $user->code_province);
             }
