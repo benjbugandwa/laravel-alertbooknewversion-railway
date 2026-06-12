@@ -79,6 +79,10 @@
                         Victimes des violations
                     </x-nav-link>
 
+                    <x-nav-link href="{{ route('reponses.index') }}" :active="request()->routeIs('reponses.*')" icon="reply">
+                        Réponses aux incidents
+                    </x-nav-link>
+
 
                     <x-nav-link href="{{ route('service-providers.index') }}" :active="request()->routeIs('providers.*')" icon="building-2">
                         Structures de prise en charge
@@ -151,6 +155,8 @@
                         @endif
                         <x-nav-link href="{{ route('victimes.index') }}" :active="false"
                             icon="users" @click="close()">Victimes des violations</x-nav-link>
+                        <x-nav-link href="{{ route('reponses.index') }}" :active="request()->routeIs('reponses.*')"
+                            icon="reply" @click="close()">Réponses aux incidents</x-nav-link>
                         <x-nav-link href="{{ route('service-providers.index') }}" :active="false"
                             icon="building-2" @click="close()">Structures</x-nav-link>
                         <x-nav-link href="{{ route('organisations.index') }}" :active="false"
