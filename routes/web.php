@@ -12,6 +12,7 @@ use App\Livewire\Pages\Incidents\Index as IncidentsIndex;
 use App\Livewire\Pages\Incidents\Show as IncidentsShow;
 use App\Livewire\Pages\ServiceProviders\Index as ServiceProvidersIndex;
 use App\Http\Controllers\IncidentPrintController;
+use App\Http\Controllers\IncidentBriefingController;
 use App\Http\Controllers\IncidentExportController;
 use App\Livewire\Pages\Supervision\SuperviseurPerformance;
 use App\Livewire\Pages\Superviseurs\Performance;
@@ -62,6 +63,10 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::get('/incidents/{incident}/print', [IncidentPrintController::class, 'show'])
         ->name('incidents.print');
+    Route::get('/incidents/{incident}/briefing', [IncidentBriefingController::class, 'incident'])
+        ->name('incidents.briefing');
+    Route::get('/briefings/province', [IncidentBriefingController::class, 'province'])
+        ->name('briefings.province');
 
     Route::get('/exports/incidents', [IncidentExportController::class, 'export'])
         ->name('exports.incidents');

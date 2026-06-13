@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
+use App\Services\IncidentSlaService;
 
 class Dashboard extends Component
 {
@@ -42,6 +43,7 @@ class Dashboard extends Component
 
     public function render()
     {
+        $slaService = app(IncidentSlaService::class);
         $user = Auth::user();
         $provinceName = null;
 
@@ -179,6 +181,8 @@ class Dashboard extends Component
 
         return view('livewire.pages.dashboard', [
             'chart' => $chart,
+            'slaSummary' => $slaService->summary($provinceScope, $territoireScope),
+            'slaOverdue' => $slaService->overdueIncidents($provinceScope, $territoireScope, 8),
         ]);
     }
 }

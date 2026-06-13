@@ -6,6 +6,10 @@ use App\Models\Incident;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Models\AuditLog;
+use App\Services\IncidentDuplicateService;
+use App\Services\IncidentQualityService;
+use App\Services\IncidentSlaService;
+use App\Services\IncidentTimelineService;
 
 class Show extends Component
 {
@@ -24,7 +28,9 @@ class Show extends Component
         $this->incident->refresh()->load([
             'violences:id,violence_name,categorie_name',
             'province', 'territoire', 'zoneSante',
-            'chefferie', 'groupement', 'aireSante', 'evenement'
+            'chefferie', 'groupement', 'aireSante', 'evenement',
+            'victimes.violence', 'mouvements', 'referencements.provider',
+            'reponses', 'caseNotes', 'creator', 'assignedTo'
         ]);
     }
 
@@ -45,7 +51,9 @@ class Show extends Component
         $this->incident = $incident->load([
             'violences:id,violence_name,categorie_name',
             'province', 'territoire', 'zoneSante',
-            'chefferie', 'groupement', 'aireSante', 'evenement'
+            'chefferie', 'groupement', 'aireSante', 'evenement',
+            'victimes.violence', 'mouvements', 'referencements.provider',
+            'reponses', 'caseNotes', 'creator', 'assignedTo'
         ]);
 
         // $this->incident = $incident;
@@ -199,7 +207,13 @@ class Show extends Component
 
     public function render()
     {
-        // sleep(5);
-        return view('livewire.pages.incidents.show');
+        $this->incident->loadCount(['reponses', 'referencements']);
+
+        return view('livewire.pages.incidents.show', [
+            'sla' => app(IncidentSlaService::class)->statusFor($this->incident),
+            'quality' => app(IncidentQualityService::class)->report($this->incident),
+            'timeline' => app(IncidentTimelineService::class)->forIncident($this->incident),
+            'duplicates' => app(IncidentDuplicateService::class)->candidatesFor($this->incident),
+        ]);
     }
 }

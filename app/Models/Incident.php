@@ -131,6 +131,11 @@ class Incident extends Model
         return $this->hasMany(Referencement::class, 'id_incident', 'id');
     }
 
+    public function reponses(): HasMany
+    {
+        return $this->hasMany(Reponse::class, 'alerte_id', 'id');
+    }
+
     public function survivant(): BelongsTo
     {
         // incidents.survivant_id (uuid) -> survivants.id (uuid)

@@ -27,6 +27,11 @@
                 🖨️ Imprimer
             </a>
 
+            <a href="{{ route('incidents.briefing', $incident->id) }}"
+                class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-onu text-white hover:bg-onu/90">
+                Briefing PDF
+            </a>
+
             @if (in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur']) &&
                     !in_array($incident->statut_incident, ['Cloturée', 'Archivé']))
                 {{-- Valider (si pas déjà validé) --}}
@@ -92,6 +97,105 @@
                 <div class="text-gray-500 mb-1">Description</div>
                 <div class="whitespace-pre-line">{{ $incident->description_faits ?? '-' }}</div>
             </div>
+        </div>
+    </x-ui-card>
+
+    {{-- Intelligence opérationnelle --}}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <x-ui-card>
+            <div class="flex items-center justify-between mb-3">
+                <div class="text-sm font-semibold">SLA</div>
+                <span class="text-xs font-semibold {{ $sla['has_overdue'] ? 'text-red-700' : 'text-green-700' }}">
+                    {{ $sla['overdue_count'] }} retard(s)
+                </span>
+            </div>
+            <div class="space-y-2">
+                @foreach($sla['items'] as $item)
+                    <div class="rounded-lg border px-3 py-2 {{ $item['is_overdue'] ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-gray-50' }}">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="text-sm font-medium">{{ $item['label'] }}</div>
+                            @if($item['is_overdue'])
+                                <span class="text-xs font-semibold text-red-700">+{{ $item['hours_late'] }}h</span>
+                            @elseif($item['active'])
+                                <span class="text-xs text-gray-500">Échéance {{ $item['due_at']->format('d/m H:i') }}</span>
+                            @else
+                                <span class="text-xs text-green-700">OK</span>
+                            @endif
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">{{ $item['description'] }}</div>
+                    </div>
+                @endforeach
+            </div>
+        </x-ui-card>
+
+        <x-ui-card>
+            <div class="flex items-center justify-between mb-3">
+                <div class="text-sm font-semibold">Qualité des données</div>
+                <span class="text-xs font-semibold {{ $quality['score'] >= 85 ? 'text-green-700' : ($quality['score'] >= 65 ? 'text-amber-700' : 'text-red-700') }}">
+                    {{ $quality['score'] }}%
+                </span>
+            </div>
+            @if($quality['issues']->isEmpty())
+                <div class="text-sm text-green-700">Aucune donnée critique manquante.</div>
+            @else
+                <div class="space-y-2">
+                    @foreach($quality['issues']->take(6) as $issue)
+                        <div class="flex items-start gap-2 text-sm">
+                            <span class="mt-1 h-2 w-2 rounded-full {{ $issue['severity'] === 'high' ? 'bg-red-500' : ($issue['severity'] === 'medium' ? 'bg-amber-500' : 'bg-gray-400') }}"></span>
+                            <span>{{ $issue['label'] }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </x-ui-card>
+
+        <x-ui-card>
+            <div class="text-sm font-semibold mb-3">Doublons potentiels</div>
+            @if($duplicates->isEmpty())
+                <div class="text-sm text-gray-500">Aucun incident similaire détecté.</div>
+            @else
+                <div class="space-y-3">
+                    @foreach($duplicates as $row)
+                        <div class="rounded-lg border border-gray-100 p-3">
+                            <div class="flex items-center justify-between gap-3">
+                                <a href="{{ route('incidents.show', $row['incident']->id) }}" class="text-sm font-semibold text-gray-900 hover:underline">
+                                    {{ $row['incident']->code_incident }}
+                                </a>
+                                <span class="text-xs font-bold text-red-700">{{ $row['score'] }}%</span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">{{ implode(', ', $row['reasons']) }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </x-ui-card>
+    </div>
+
+    <x-ui-card>
+        <div class="flex items-center justify-between mb-4">
+            <div class="text-sm font-semibold">Timeline complète</div>
+            <div class="text-xs text-gray-500">{{ $timeline->count() }} événement(s)</div>
+        </div>
+        <div class="space-y-3">
+            @forelse($timeline as $event)
+                <div class="flex gap-3">
+                    <div class="w-32 shrink-0 text-xs text-gray-500 pt-0.5">{{ $event['date']->format('d/m/Y H:i') }}</div>
+                    <div class="relative pl-4 border-l border-gray-200 pb-3">
+                        <div class="absolute -left-1.5 top-1 h-3 w-3 rounded-full bg-onu"></div>
+                        <div class="text-sm font-semibold text-gray-900">{{ $event['label'] }}</div>
+                        <div class="text-sm text-gray-700">{{ $event['title'] }}</div>
+                        @if(!empty($event['meta']))
+                            <div class="mt-1 text-xs text-gray-500">
+                                @foreach($event['meta'] as $key => $value)
+                                    <span class="mr-3">{{ $key }}: {{ $value }}</span>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @empty
+                <div class="text-sm text-gray-500">Aucun événement disponible.</div>
+            @endforelse
         </div>
     </x-ui-card>
 
