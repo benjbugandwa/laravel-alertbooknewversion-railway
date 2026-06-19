@@ -705,7 +705,6 @@ class Index extends Component
         $user = $this->user();
 
         $query = Incident::query()
-            ->where('incidents.statut_incident', '!=', 'Archivé')
             ->leftJoin('provinces', function($join) {
                 $join->on('incidents.code_province', '=', 'provinces.code_province')
                      ->where('provinces.is_active', 'YES');
@@ -751,7 +750,7 @@ class Index extends Component
 
         return view('livewire.pages.incidents.index', [
             'incidents' => $incidents,
-            'statuses' => ['En attente', 'Validé', 'Cloturée', 'Archivé'],
+            'statuses' => ['En attente', 'Validé', 'Cloturée'],
         ]);
     }
 }

@@ -80,6 +80,68 @@
         </x-ui-card>
     </div>
 
+    {{-- SLA operational panel --}}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <x-ui-card>
+            <div class="text-sm text-gray-600">Incidents en retard SLA</div>
+            <div class="mt-2 text-3xl font-bold text-red-700">{{ $slaSummary['total_overdue_incidents'] ?? 0 }}</div>
+            <div class="mt-3 grid grid-cols-3 gap-2 text-xs">
+                <div class="rounded-lg bg-red-50 p-2">
+                    <div class="font-semibold text-red-900">{{ $slaSummary['validation'] ?? 0 }}</div>
+                    <div class="text-red-700">Validation</div>
+                </div>
+                <div class="rounded-lg bg-amber-50 p-2">
+                    <div class="font-semibold text-amber-900">{{ $slaSummary['response'] ?? 0 }}</div>
+                    <div class="text-amber-700">Réponse</div>
+                </div>
+                <div class="rounded-lg bg-blue-50 p-2">
+                    <div class="font-semibold text-blue-900">{{ $slaSummary['referral'] ?? 0 }}</div>
+                    <div class="text-blue-700">Référencement</div>
+                </div>
+            </div>
+        </x-ui-card>
+
+        <x-ui-card class="lg:col-span-2">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <div class="font-semibold">À traiter en priorité</div>
+                @if($chart['scope']['code_province'])
+                    <a href="{{ route('briefings.province', ['province' => $chart['scope']['code_province']]) }}"
+                        class="text-xs font-semibold text-onu hover:underline">
+                        Briefing province PDF
+                    </a>
+                @else
+                    <span class="text-xs text-gray-400">Sélectionner une province pour le briefing PDF</span>
+                @endif
+            </div>
+
+            <div class="divide-y divide-gray-100">
+                @forelse($slaOverdue as $lateIncident)
+                    <div class="py-3 flex items-start justify-between gap-4">
+                        <div>
+                            <a href="{{ route('incidents.show', $lateIncident->id) }}" class="font-semibold text-gray-900 hover:underline">
+                                {{ $lateIncident->code_incident }}
+                            </a>
+                            <div class="text-xs text-gray-500">
+                                {{ $lateIncident->localite ?? '-' }} · {{ $lateIncident->zoneSante?->nom_zonesante ?? '-' }}
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap justify-end gap-1.5">
+                            @foreach($lateIncident->sla['items'] as $item)
+                                @if($item['is_overdue'])
+                                    <span class="rounded-full bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700 border border-red-100">
+                                        {{ $item['label'] }} +{{ $item['hours_late'] }}h
+                                    </span>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                @empty
+                    <div class="py-4 text-sm text-gray-500">Aucun retard SLA dans le périmètre affiché.</div>
+                @endforelse
+            </div>
+        </x-ui-card>
+    </div>
+
     {{-- Payload caché pour mise à jour JS --}}
     <div id="chart-data" class="hidden" data-payload="{{ json_encode($chart) }}"></div>
 

@@ -45,7 +45,6 @@ class IncidentsMatrixExport implements FromCollection, WithHeadings, WithStyles,
     {
         $q = Incident::query()
             ->whereBetween('date_incident', [$this->from, $this->to])
-            ->where('statut_incident', '!=', 'Archivé')
             ->with([
                 'province',
                 'zoneSante',

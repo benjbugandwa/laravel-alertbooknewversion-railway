@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,6 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Incident extends Model
 {
     use HasUuids;
+
+    public const STATUS_ARCHIVED = 'Archivé';
+    public const HIDE_ARCHIVED_SCOPE = 'hide_archived_incidents';
 
     protected $table = 'incidents';
 
@@ -60,6 +64,35 @@ class Incident extends Model
         'assigned_at' => 'datetime',
         'last_status_changed_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope(self::HIDE_ARCHIVED_SCOPE, function (Builder $builder): void {
+            self::applyNotArchivedConstraint(
+                $builder,
+                $builder->getModel()->qualifyColumn('statut_incident')
+            );
+        });
+    }
+
+    public static function applyNotArchivedConstraint($query, string $column = 'incidents.statut_incident')
+    {
+        return $query->where(function ($query) use ($column) {
+            $query->whereNull($column)
+                ->orWhere($column, '!=', self::STATUS_ARCHIVED);
+        });
+    }
+
+    public function scopeWithArchived(Builder $query): Builder
+    {
+        return $query->withoutGlobalScope(self::HIDE_ARCHIVED_SCOPE);
+    }
+
+    public function scopeOnlyArchived(Builder $query): Builder
+    {
+        return $query->withoutGlobalScope(self::HIDE_ARCHIVED_SCOPE)
+            ->where('statut_incident', self::STATUS_ARCHIVED);
+    }
 
     // Relations utiles (cohérentes avec les FK SQL)
     public function creator(): BelongsTo
@@ -129,6 +162,11 @@ class Incident extends Model
     public function referencements(): HasMany
     {
         return $this->hasMany(Referencement::class, 'id_incident', 'id');
+    }
+
+    public function reponses(): HasMany
+    {
+        return $this->hasMany(Reponse::class, 'alerte_id', 'id');
     }
 
     public function survivant(): BelongsTo

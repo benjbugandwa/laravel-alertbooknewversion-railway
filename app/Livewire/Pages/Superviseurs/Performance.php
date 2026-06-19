@@ -182,15 +182,19 @@ class Performance extends Component
                 $rate = $assignedTotal > 0 ? (int) round(($validatedCount / $assignedTotal) * 100) : 0;
 
                 // 4) Notes et référencements effectués par ce superviseur sur la période
-                $notesTotal = DB::table('case_notes')
-                    ->where('created_by', $sup->id)
-                    ->whereBetween('created_at', [$start, $end])
-                    ->count();
+                $notesTotalQuery = DB::table('case_notes')
+                    ->leftJoin('incidents', 'case_notes.id_incident', '=', 'incidents.id')
+                    ->where('case_notes.created_by', $sup->id)
+                    ->whereBetween('case_notes.created_at', [$start, $end]);
+                Incident::applyNotArchivedConstraint($notesTotalQuery);
+                $notesTotal = $notesTotalQuery->count();
 
-                $refsTotal = DB::table('referencements')
-                    ->where('created_by', $sup->id)
-                    ->whereBetween('created_at', [$start, $end])
-                    ->count();
+                $refsTotalQuery = DB::table('referencements')
+                    ->leftJoin('incidents', 'referencements.id_incident', '=', 'incidents.id')
+                    ->where('referencements.created_by', $sup->id)
+                    ->whereBetween('referencements.created_at', [$start, $end]);
+                Incident::applyNotArchivedConstraint($refsTotalQuery);
+                $refsTotal = $refsTotalQuery->count();
 
                 $stats = [
                     'assigned_total' => (int) $assignedTotal,
@@ -212,7 +216,9 @@ class Performance extends Component
                         'incidents.code_incident',
                     ])
                     ->where('case_notes.created_by', $sup->id)
-                    ->whereBetween('case_notes.created_at', [$start, $end])
+                    ->whereBetween('case_notes.created_at', [$start, $end]);
+                Incident::applyNotArchivedConstraint($recentNotes);
+                $recentNotes = $recentNotes
                     ->orderByDesc('case_notes.created_at')
                     ->limit(20)
                     ->get()
@@ -238,7 +244,9 @@ class Performance extends Component
                         'service_providers.focalpoint_number',
                     ])
                     ->where('referencements.created_by', $sup->id)
-                    ->whereBetween('referencements.created_at', [$start, $end])
+                    ->whereBetween('referencements.created_at', [$start, $end]);
+                Incident::applyNotArchivedConstraint($recentRefs);
+                $recentRefs = $recentRefs
                     ->orderByDesc('referencements.created_at')
                     ->limit(20)
                     ->get()
