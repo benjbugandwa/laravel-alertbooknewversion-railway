@@ -16,7 +16,6 @@ class IncidentDuplicateService
         $query = Incident::query()
             ->with(['province', 'territoire', 'zoneSante', 'evenement', 'violences'])
             ->where('id', '!=', $incident->id)
-            ->whereNotIn('statut_incident', ['Archivé'])
             ->when($incident->code_province, fn($q) => $q->where('code_province', $incident->code_province))
             ->when($date, fn($q) => $q->whereBetween('date_incident', [
                 $date->copy()->subDays(3)->startOfDay(),

@@ -69,7 +69,6 @@ class IncidentBriefingController extends Controller
             ->with(['province', 'territoire', 'zoneSante', 'evenement'])
             ->withCount(['victimes', 'reponses', 'referencements'])
             ->where('code_province', $provinceCode)
-            ->whereNotIn('statut_incident', ['Archivé'])
             ->orderByDesc('date_incident')
             ->limit(80)
             ->get();

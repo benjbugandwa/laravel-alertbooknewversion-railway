@@ -103,7 +103,7 @@ class IncidentSlaService
         return Incident::query()
             ->with(['province', 'territoire', 'zoneSante'])
             ->withCount(['reponses', 'referencements'])
-            ->whereNotIn('statut_incident', ['Archivé', 'Cloturée'])
+            ->where('statut_incident', '!=', 'Cloturée')
             ->when($provinceCode, fn(Builder $q) => $q->where('code_province', $provinceCode))
             ->when($territoryCode, fn(Builder $q) => $q->where('code_territoire', $territoryCode));
     }

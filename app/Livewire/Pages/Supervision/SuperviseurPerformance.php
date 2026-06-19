@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Pages\Supervision;
 
+use App\Models\Incident;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
@@ -97,8 +98,8 @@ class SuperviseurPerformance extends Component
         if ($this->superviseurId !== '') {
             // ---- Incidents assignés / validés / en attente ----
             $assignedQuery = DB::table('incidents')
-                ->where('incidents.statut_incident', '!=', 'Archivé')
                 ->where('incidents.assigned_to', $this->superviseurId);
+            Incident::applyNotArchivedConstraint($assignedQuery);
 
             $assignedQuery = $this->applyDateRangeToIncidentQuery($assignedQuery);
 
@@ -129,6 +130,7 @@ class SuperviseurPerformance extends Component
             $notesQuery = DB::table('case_notes')
                 ->leftJoin('incidents', 'case_notes.id_incident', '=', 'incidents.id')
                 ->where('case_notes.created_by', $this->superviseurId);
+            Incident::applyNotArchivedConstraint($notesQuery);
 
             if (!$this->isSuperAdmin()) {
                 $notesQuery->where('incidents.code_province', Auth::user()->code_province);
@@ -164,6 +166,7 @@ class SuperviseurPerformance extends Component
                 ->leftJoin('incidents', 'referencements.id_incident', '=', 'incidents.id')
                 ->leftJoin('service_providers', 'referencements.provider_id', '=', 'service_providers.id')
                 ->where('referencements.created_by', $this->superviseurId);
+            Incident::applyNotArchivedConstraint($refQuery);
 
             if (!$this->isSuperAdmin()) {
                 $refQuery->where('incidents.code_province', Auth::user()->code_province);

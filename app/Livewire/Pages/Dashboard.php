@@ -6,10 +6,13 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
+use App\Models\Incident;
 use App\Services\IncidentSlaService;
 
 class Dashboard extends Component
 {
+    private const INCIDENT_CACHE_VERSION = 'no_archived_v1';
+
     public int $days = 30; // période pour l’évolution (30 derniers jours)
 
     public $selectedProvince = '';
@@ -76,7 +79,7 @@ class Dashboard extends Component
         });
 
         // --------- Incidents par province (Cache 15 min) ----------
-        $cacheKeyProvince = "dashboard_inc_prov_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
+        $cacheKeyProvince = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_prov_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
         $byProvince = Cache::remember($cacheKeyProvince, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
             $q = DB::table('incidents')
                 ->leftJoin('provinces', function($join) {
@@ -84,6 +87,7 @@ class Dashboard extends Component
                          ->where('provinces.is_active', 'YES');
                 })
                 ->selectRaw("COALESCE(provinces.nom_province, incidents.code_province, 'N/A') as label, COUNT(*)::int as total");
+            Incident::applyNotArchivedConstraint($q);
             if ($provinceScope) $q->where('incidents.code_province', $provinceScope);
             if ($territoireScope) $q->where('incidents.code_territoire', $territoireScope);
             return $q->groupBy('label')->orderByDesc('total')->limit(15)->get();
@@ -100,45 +104,49 @@ class Dashboard extends Component
         })->values();
 
         // --------- Incidents par statut (Cache 15 min) ----------
-        $cacheKeyStatus = "dashboard_inc_stat_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
+        $cacheKeyStatus = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_stat_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
         $byStatus = Cache::remember($cacheKeyStatus, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
             $q = DB::table('incidents')
                 ->selectRaw("COALESCE(incidents.statut_incident, 'N/A') as label, COUNT(*)::int as total");
+            Incident::applyNotArchivedConstraint($q);
             if ($provinceScope) $q->where('incidents.code_province', $provinceScope);
             if ($territoireScope) $q->where('incidents.code_territoire', $territoireScope);
             return $q->groupBy('label')->orderByDesc('total')->get();
         });
 
         // --------- Incidents par type d'événement (Cache 15 min) ----------
-        $cacheKeyEventType = "dashboard_inc_evt_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
+        $cacheKeyEventType = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_evt_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
         $byEventType = Cache::remember($cacheKeyEventType, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
             $q = DB::table('incidents')
                 ->leftJoin('evenements', 'incidents.code_evenement', '=', 'evenements.code_evenement')
                 ->selectRaw("COALESCE(evenements.nom_evenement, incidents.code_evenement, 'N/A') as label, COUNT(*)::int as total");
+            Incident::applyNotArchivedConstraint($q);
             if ($provinceScope) $q->where('incidents.code_province', $provinceScope);
             if ($territoireScope) $q->where('incidents.code_territoire', $territoireScope);
             return $q->groupBy('label')->orderByDesc('total')->limit(15)->get();
         });
 
         // --------- Evolution incidents (X jours) (Cache 15 min) ----------
-        $cacheKeyEvo = "dashboard_inc_evo_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all') . "_days_" . $this->days;
+        $cacheKeyEvo = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_evo_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all') . "_days_" . $this->days;
         $evolution = Cache::remember($cacheKeyEvo, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
             $q = DB::table('incidents')
                 ->whereNotNull('incidents.date_incident')
                 ->where('incidents.date_incident', '>=', now()->subDays($this->days)->startOfDay())
                 ->selectRaw("to_char(incidents.date_incident::date, 'YYYY-MM-DD') as d, COUNT(*)::int as total");
+            Incident::applyNotArchivedConstraint($q);
             if ($provinceScope) $q->where('incidents.code_province', $provinceScope);
             if ($territoireScope) $q->where('incidents.code_territoire', $territoireScope);
             return $q->groupBy('d')->orderBy('d')->get();
         });
 
         // --------- Incidents par chefferie pour la carte (Cache 15 min) ----------
-        $cacheKeyChefferie = "dashboard_inc_chef_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
+        $cacheKeyChefferie = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_chef_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
         $byChefferie = Cache::remember($cacheKeyChefferie, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
             $q = DB::table('incidents')
                 ->leftJoin('chefferies', 'incidents.code_chefferie', '=', 'chefferies.code_chefferie')
                 ->selectRaw("chefferies.nom_chefferie as label, COUNT(*)::int as total")
                 ->whereNotNull('chefferies.nom_chefferie');
+            Incident::applyNotArchivedConstraint($q);
             if ($provinceScope) $q->where('incidents.code_province', $provinceScope);
             if ($territoireScope) $q->where('incidents.code_territoire', $territoireScope);
             return $q->groupBy('label')->get();
