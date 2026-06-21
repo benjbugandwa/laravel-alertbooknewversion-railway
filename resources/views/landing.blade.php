@@ -28,8 +28,8 @@
 
     {{-- Header --}}
     <header class="border-b bg-white">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 min-h-16 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
                 <img src="{{ asset('images/logo/logo-white.png') }}" class="h-9" alt="Logo">
                 <div>
                     <div class="font-semibold">{{ __('app.app_name') }}</div>
@@ -62,6 +62,11 @@
                 <a href="{{ route('about_us') }}"
                     class="h-10 px-4 flex items-center rounded-lg bg-[#1B4D8C] text-white text-sm font-semibold hover:opacity-95">
                     A propos de AlertBook
+                </a>
+
+                <a href="{{ route('documentation.videos') }}"
+                    class="h-10 px-4 flex items-center rounded-lg border border-[#1B4D8C]/20 bg-[#1B4D8C]/10 text-[#1B4D8C] text-sm font-semibold hover:bg-[#1B4D8C]/15">
+                    Aide video
                 </a>
             </div>
 
@@ -104,6 +109,11 @@
                                 <a href="{{ route('register') }}"
                                     class="h-10 px-4 flex items-center justify-center rounded-lg border border-gray-200 text-sm font-semibold w-fit">
                                     {{ __('app.hero.cta_register') }}
+                                </a>
+
+                                <a href="{{ route('documentation.videos') }}"
+                                    class="h-10 px-4 flex items-center justify-center rounded-lg border border-[#1B4D8C]/25 text-[#1B4D8C] text-sm font-semibold w-fit hover:bg-[#1B4D8C]/10">
+                                    Voir l'aide video
                                 </a>
 
                                 <span
@@ -209,6 +219,11 @@
                             <a href="{{ route('login') }}"
                                 class="h-10 px-4 flex items-center justify-center rounded-lg border border-gray-200 text-sm font-semibold w-fit">
                                 {{ __('app.cta.btn_login') }}
+                            </a>
+
+                            <a href="{{ route('documentation.videos') }}"
+                                class="h-10 px-4 flex items-center justify-center rounded-lg border border-[#1B4D8C]/25 text-[#1B4D8C] text-sm font-semibold w-fit hover:bg-[#1B4D8C]/10">
+                                Aide video
                             </a>
                         @endauth
                     </div>

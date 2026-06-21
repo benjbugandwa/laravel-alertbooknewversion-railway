@@ -14,6 +14,7 @@ use App\Livewire\Pages\ServiceProviders\Index as ServiceProvidersIndex;
 use App\Http\Controllers\IncidentPrintController;
 use App\Http\Controllers\IncidentBriefingController;
 use App\Http\Controllers\IncidentExportController;
+use App\Http\Controllers\DocumentationVideoController;
 use App\Livewire\Pages\Supervision\SuperviseurPerformance;
 use App\Livewire\Pages\Superviseurs\Performance;
 use App\Livewire\Pages\Documents\Index as DocumentsIndex;
@@ -35,6 +36,11 @@ Route::get('/a-propos', function () {
 Route::get('/a-propos-nous', function () {
     return view('about_us');
 })->name('about_us');
+
+Route::get('/aide/videos', [DocumentationVideoController::class, 'index'])
+    ->name('documentation.videos');
+Route::get('/aide/videos/{video}', [DocumentationVideoController::class, 'stream'])
+    ->name('documentation.videos.stream');
 
 Route::get('/phpinfo', function () {
     phpinfo();
