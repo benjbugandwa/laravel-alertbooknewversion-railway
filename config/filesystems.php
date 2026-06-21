@@ -1,5 +1,21 @@
 <?php
 
+$envValue = static function (array $keys, mixed $default = null): mixed {
+    foreach ($keys as $key) {
+        $value = env($key);
+
+        if (is_string($value)) {
+            $value = trim($value);
+        }
+
+        if ($value !== null && $value !== '' && !in_array(strtolower((string) $value), ['undefined', 'null'], true)) {
+            return $value;
+        }
+    }
+
+    return $default;
+};
+
 return [
 
     /*
@@ -49,12 +65,12 @@ return [
 
         's3' => [
             'driver' => 's3',
-            'key' => env('AWS_ACCESS_KEY_ID', env('ACCESS_KEY_ID')),
-            'secret' => env('AWS_SECRET_ACCESS_KEY', env('SECRET_ACCESS_KEY')),
-            'region' => env('AWS_DEFAULT_REGION', env('REGION', 'auto')),
-            'bucket' => env('AWS_BUCKET', env('BUCKET')),
-            'url' => env('AWS_URL'),
-            'endpoint' => env('AWS_ENDPOINT', env('ENDPOINT')),
+            'key' => $envValue(['AWS_ACCESS_KEY_ID', 'ACCESS_KEY_ID']),
+            'secret' => $envValue(['AWS_SECRET_ACCESS_KEY', 'SECRET_ACCESS_KEY']),
+            'region' => $envValue(['AWS_DEFAULT_REGION', 'AWS_REGION', 'REGION'], 'auto'),
+            'bucket' => $envValue(['AWS_BUCKET', 'BUCKET']),
+            'url' => $envValue(['AWS_URL']),
+            'endpoint' => $envValue(['AWS_ENDPOINT', 'ENDPOINT']),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
             'report' => false,
