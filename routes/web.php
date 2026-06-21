@@ -39,6 +39,8 @@ Route::get('/a-propos-nous', function () {
 
 Route::get('/aide/videos', [DocumentationVideoController::class, 'index'])
     ->name('documentation.videos');
+Route::get('/aide/videos/{video}/offline', [DocumentationVideoController::class, 'offline'])
+    ->name('documentation.videos.offline');
 Route::get('/aide/videos/{video}', [DocumentationVideoController::class, 'stream'])
     ->name('documentation.videos.stream');
 

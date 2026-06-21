@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentationVideoController extends Controller
 {
@@ -45,6 +46,23 @@ class DocumentationVideoController extends Controller
             ]);
     }
 
+    public function offline(Request $request, string $video): Response
+    {
+        $item = collect($this->videos())->firstWhere('key', $video);
+        abort_if(!$item, 404);
+
+        if ($this->driver() === 's3') {
+            return $this->streamS3File($item);
+        }
+
+        return response()
+            ->file($item['path'], [
+                'Content-Type' => File::mimeType($item['path']) ?: 'video/mp4',
+                'Content-Disposition' => 'inline; filename="' . addslashes($item['filename']) . '"',
+                'Cache-Control' => 'public, max-age=31536000',
+            ]);
+    }
+
     private function videos(): array
     {
         return $this->driver() === 's3'
@@ -78,6 +96,7 @@ class DocumentationVideoController extends Controller
                     'description' => $description,
                     'path' => $file->getRealPath(),
                     'url' => route('documentation.videos.stream', $key),
+                    'offline_url' => route('documentation.videos.offline', $key),
                     'size' => $this->formatBytes($file->getSize()),
                     'updated_at' => date('d/m/Y H:i', $file->getMTime()),
                 ];
@@ -109,6 +128,7 @@ class DocumentationVideoController extends Controller
                         'description' => $description,
                         'path' => $path,
                         'url' => $this->temporaryUrl($path),
+                        'offline_url' => route('documentation.videos.offline', $key),
                         'size' => $this->formatBytes($size),
                         'updated_at' => $lastModified ? date('d/m/Y H:i', $lastModified) : 'N/A',
                     ];
@@ -243,6 +263,40 @@ class DocumentationVideoController extends Controller
         }
 
         return 'Erreur S3 : ' . Str::limit($message, 220);
+    }
+
+    private function streamS3File(array $item): StreamedResponse
+    {
+        $disk = Storage::disk($this->diskName());
+        $stream = $disk->readStream($item['path']);
+        abort_if($stream === false, 404);
+        $headers = [
+            'Content-Type' => $this->mimeTypeFor($item['filename']),
+            'Content-Disposition' => 'inline; filename="' . addslashes($item['filename']) . '"',
+            'Cache-Control' => 'public, max-age=31536000',
+        ];
+        $size = $this->safeSize($disk, $item['path']);
+
+        if ($size > 0) {
+            $headers['Content-Length'] = (string) $size;
+        }
+
+        return response()->stream(function () use ($stream) {
+            fpassthru($stream);
+
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }, 200, $headers);
+    }
+
+    private function mimeTypeFor(string $filename): string
+    {
+        return match (Str::lower(pathinfo($filename, PATHINFO_EXTENSION))) {
+            'webm' => 'video/webm',
+            'mov' => 'video/quicktime',
+            default => 'video/mp4',
+        };
     }
 
     private function descriptionFor(string $directory, string $basename): ?string

@@ -103,10 +103,23 @@
                             </div>
                         </div>
 
-                        <button id="togglePlayback" type="button"
-                            class="flex h-10 shrink-0 items-center justify-center rounded-lg bg-[#1B4D8C] px-4 text-sm font-semibold text-white hover:bg-[#164174]">
-                            Stopper
-                        </button>
+                        <div class="flex shrink-0 flex-col gap-2 sm:items-end">
+                            <div class="flex flex-wrap gap-2">
+                                <button id="togglePlayback" type="button"
+                                    class="flex h-10 items-center justify-center rounded-lg bg-[#1B4D8C] px-4 text-sm font-semibold text-white hover:bg-[#164174]">
+                                    Stopper
+                                </button>
+                                <button id="saveOffline" type="button"
+                                    class="flex h-10 items-center justify-center rounded-lg border border-[#1B4D8C]/25 bg-white px-4 text-sm font-semibold text-[#1B4D8C] hover:bg-[#1B4D8C]/10">
+                                    Sauvegarder hors ligne
+                                </button>
+                                <button id="removeOffline" type="button"
+                                    class="hidden h-10 items-center justify-center rounded-lg border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 hover:bg-red-50">
+                                    Supprimer offline
+                                </button>
+                            </div>
+                            <div id="offlineStatus" class="text-xs font-medium text-gray-500"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -123,6 +136,7 @@
                                 data-video-card data-key="{{ $video['key'] }}" data-title="{{ $video['title'] }}"
                                 data-description="{{ $video['description'] ?: 'Guide video AlertBook.' }}"
                                 data-url="{{ $video['url'] }}"
+                                data-offline-url="{{ $video['offline_url'] }}"
                                 data-meta="{{ $video['size'] }} · Mise a jour {{ $video['updated_at'] }}">
                                 <span class="relative block overflow-hidden rounded-md bg-black">
                                     <video class="aspect-video w-full object-cover opacity-90" muted playsinline
@@ -156,14 +170,103 @@
         document.addEventListener('DOMContentLoaded', () => {
             const player = document.getElementById('helpVideoPlayer');
             const toggle = document.getElementById('togglePlayback');
+            const saveOffline = document.getElementById('saveOffline');
+            const removeOffline = document.getElementById('removeOffline');
+            const offlineStatus = document.getElementById('offlineStatus');
             const title = document.getElementById('currentVideoTitle');
             const description = document.getElementById('currentVideoDescription');
             const meta = document.getElementById('currentVideoMeta');
             const cards = Array.from(document.querySelectorAll('[data-video-card]'));
+            const cacheName = 'alertbook-help-videos-v1';
+            let activeCard = cards[0] ?? null;
+            let activeObjectUrl = null;
 
-            if (!player || !toggle || cards.length === 0) {
+            if (!player || !toggle || !saveOffline || !removeOffline || cards.length === 0) {
                 return;
             }
+
+            const supportsOffline = 'caches' in window;
+
+            const cacheKey = (card) => new Request(card.dataset.offlineUrl, { credentials: 'same-origin' });
+
+            const setStatus = (message, tone = 'muted') => {
+                offlineStatus.textContent = message;
+                offlineStatus.className = 'text-xs font-medium ' + {
+                    success: 'text-green-700',
+                    error: 'text-red-700',
+                    info: 'text-[#1B4D8C]',
+                    muted: 'text-gray-500',
+                }[tone];
+            };
+
+            const isSaved = async (card) => {
+                if (!supportsOffline || !card?.dataset.offlineUrl) {
+                    return false;
+                }
+
+                const cache = await caches.open(cacheName);
+                return Boolean(await cache.match(cacheKey(card)));
+            };
+
+            const markCardSaved = (card, saved) => {
+                card.dataset.offlineSaved = saved ? '1' : '0';
+                let badge = card.querySelector('[data-offline-badge]');
+
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.dataset.offlineBadge = '1';
+                    badge.className = 'mt-2 hidden w-fit rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700 ring-1 ring-green-200';
+                    badge.textContent = 'Disponible offline';
+                    card.querySelector('.min-w-0')?.appendChild(badge);
+                }
+
+                badge.classList.toggle('hidden', !saved);
+            };
+
+            const refreshOfflineState = async () => {
+                if (!supportsOffline) {
+                    saveOffline.disabled = true;
+                    saveOffline.textContent = 'Offline indisponible';
+                    setStatus('Ce navigateur ne permet pas la sauvegarde offline.', 'error');
+                    return;
+                }
+
+                await Promise.all(cards.map(async (card) => markCardSaved(card, await isSaved(card))));
+
+                const saved = activeCard ? await isSaved(activeCard) : false;
+                saveOffline.classList.toggle('hidden', saved);
+                removeOffline.classList.toggle('hidden', !saved);
+                removeOffline.classList.toggle('flex', saved);
+
+                if (saved) {
+                    setStatus('Cette video est disponible hors ligne.', 'success');
+                } else {
+                    setStatus(navigator.onLine ? 'Non sauvegardee sur cet appareil.' : 'Connectez-vous pour sauvegarder cette video.', 'muted');
+                }
+            };
+
+            const cachedObjectUrl = async (card) => {
+                if (!supportsOffline) {
+                    return null;
+                }
+
+                const cache = await caches.open(cacheName);
+                const response = await cache.match(cacheKey(card));
+
+                if (!response) {
+                    return null;
+                }
+
+                const blob = await response.blob();
+                return URL.createObjectURL(blob);
+            };
+
+            const releaseObjectUrl = () => {
+                if (activeObjectUrl) {
+                    URL.revokeObjectURL(activeObjectUrl);
+                    activeObjectUrl = null;
+                }
+            };
 
             const setActiveCard = (key) => {
                 cards.forEach((card) => {
@@ -178,14 +281,25 @@
                 toggle.textContent = player.paused ? 'Reprendre' : 'Stopper';
             };
 
-            const selectVideo = (card) => {
-                player.src = card.dataset.url;
+            const selectVideo = async (card, autoplay = true) => {
+                activeCard = card;
+                releaseObjectUrl();
+
+                const offlineUrl = await cachedObjectUrl(card);
+                player.src = offlineUrl || card.dataset.url;
+                activeObjectUrl = offlineUrl;
                 title.textContent = card.dataset.title;
                 description.textContent = card.dataset.description;
                 meta.textContent = card.dataset.meta;
                 setActiveCard(card.dataset.key);
+                await refreshOfflineState();
                 player.load();
-                player.play().catch(() => updateToggle());
+
+                if (autoplay) {
+                    player.play().catch(() => updateToggle());
+                } else {
+                    updateToggle();
+                }
             };
 
             cards.forEach((card) => {
@@ -204,6 +318,59 @@
             player.addEventListener('pause', updateToggle);
             player.addEventListener('ended', updateToggle);
 
+            saveOffline.addEventListener('click', async () => {
+                if (!activeCard || !supportsOffline) {
+                    return;
+                }
+
+                if (!navigator.onLine) {
+                    setStatus('Connexion requise pour sauvegarder la video.', 'error');
+                    return;
+                }
+
+                saveOffline.disabled = true;
+                saveOffline.textContent = 'Sauvegarde...';
+                setStatus('Telechargement de la video pour usage hors ligne...', 'info');
+
+                try {
+                    const response = await fetch(activeCard.dataset.offlineUrl, {
+                        credentials: 'same-origin',
+                        cache: 'no-store',
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status);
+                    }
+
+                    const cache = await caches.open(cacheName);
+                    await cache.put(cacheKey(activeCard), response.clone());
+                    markCardSaved(activeCard, true);
+                    await selectVideo(activeCard);
+                    setStatus('Video sauvegardee sur cet appareil.', 'success');
+                } catch (error) {
+                    setStatus('Impossible de sauvegarder cette video. Verifiez la connexion et l espace disponible.', 'error');
+                } finally {
+                    saveOffline.disabled = false;
+                    saveOffline.textContent = 'Sauvegarder hors ligne';
+                    await refreshOfflineState();
+                }
+            });
+
+            removeOffline.addEventListener('click', async () => {
+                if (!activeCard || !supportsOffline) {
+                    return;
+                }
+
+                const cache = await caches.open(cacheName);
+                await cache.delete(cacheKey(activeCard));
+                markCardSaved(activeCard, false);
+                releaseObjectUrl();
+                player.src = activeCard.dataset.url;
+                player.load();
+                setStatus('Copie hors ligne supprimee de cet appareil.', 'muted');
+                await refreshOfflineState();
+            });
+
             document.querySelectorAll('[data-thumb-video]').forEach((thumb) => {
                 thumb.addEventListener('loadedmetadata', () => {
                     if (Number.isFinite(thumb.duration) && thumb.duration > 2) {
@@ -212,8 +379,11 @@
                 }, { once: true });
             });
 
-            setActiveCard(cards[0].dataset.key);
-            updateToggle();
+            selectVideo(cards[0], false);
+
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/alertbook-video-help-sw.js').catch(() => {});
+            }
         });
     </script>
 </body>
