@@ -23,6 +23,22 @@ $documentationDiskIsBucket = is_string($documentationDisk)
     && !filter_var($documentationDisk, FILTER_VALIDATE_URL);
 $documentationPrefixIsEndpoint = is_string($documentationPrefix)
     && filter_var($documentationPrefix, FILTER_VALIDATE_URL);
+$s3Endpoint = $envValue(
+    ['AWS_ENDPOINT', 'ENDPOINT', 'ALERTBOOK_DOCUMENTATION_ENDPOINT'],
+    $documentationPrefixIsEndpoint ? $documentationPrefix : null
+);
+$s3EndpointUsesLegacyRailwayStorage = is_string($s3Endpoint) && str_contains($s3Endpoint, 'storageapi.dev');
+$s3PathStyle = env('AWS_USE_PATH_STYLE_ENDPOINT');
+
+if (is_string($s3PathStyle) && in_array(strtolower(trim($s3PathStyle)), ['undefined', 'null', ''], true)) {
+    $s3PathStyle = null;
+}
+
+if ($s3EndpointUsesLegacyRailwayStorage) {
+    $s3PathStyle = true;
+} elseif ($s3PathStyle === null) {
+    $s3PathStyle = false;
+}
 
 return [
 
@@ -81,11 +97,8 @@ return [
                 $documentationDiskIsBucket ? $documentationDisk : null
             ),
             'url' => $envValue(['AWS_URL']),
-            'endpoint' => $envValue(
-                ['AWS_ENDPOINT', 'ENDPOINT', 'ALERTBOOK_DOCUMENTATION_ENDPOINT'],
-                $documentationPrefixIsEndpoint ? $documentationPrefix : null
-            ),
-            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'endpoint' => $s3Endpoint,
+            'use_path_style_endpoint' => $s3PathStyle,
             'throw' => false,
             'report' => false,
         ],

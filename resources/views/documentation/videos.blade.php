@@ -71,6 +71,11 @@
             <section class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
                 La source de documentation est introuvable ou inaccessible :
                 <span class="font-semibold">{{ $source }}</span>
+                @if ($sourceError)
+                    <div class="mt-3 rounded-md border border-amber-200 bg-white/70 p-3 text-amber-950">
+                        {{ $sourceError }}
+                    </div>
+                @endif
             </section>
         @elseif (empty($videos))
             <section class="rounded-lg border border-gray-200 bg-white p-5 text-sm text-gray-700">

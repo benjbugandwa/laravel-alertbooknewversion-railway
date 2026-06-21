@@ -20,6 +20,7 @@ class DocumentationVideoController extends Controller
         return view('documentation.videos', [
             'source' => $source,
             'sourceAvailable' => $this->sourceAvailable(),
+            'sourceError' => $this->sourceError(),
             'driver' => $this->driver(),
             'videos' => $videos,
             'selectedVideo' => $videos[0] ?? null,
@@ -121,6 +122,10 @@ class DocumentationVideoController extends Controller
     private function sourceAvailable(): bool
     {
         if ($this->driver() === 's3') {
+            if ($this->missingS3Config()) {
+                return false;
+            }
+
             try {
                 Storage::disk($this->diskName())->allFiles($this->prefix());
                 return true;
@@ -130,6 +135,39 @@ class DocumentationVideoController extends Controller
         }
 
         return File::isDirectory($this->documentationPath());
+    }
+
+    private function sourceError(): ?string
+    {
+        if ($this->driver() !== 's3') {
+            return File::isDirectory($this->documentationPath())
+                ? null
+                : 'Le dossier local configure n existe pas sur ce serveur.';
+        }
+
+        if ($missing = $this->missingS3Config()) {
+            return 'Configuration S3 incomplete : ' . implode(', ', $missing) . '.';
+        }
+
+        try {
+            Storage::disk($this->diskName())->allFiles($this->prefix());
+            return null;
+        } catch (\Throwable $exception) {
+            return $this->friendlyS3Error($exception);
+        }
+    }
+
+    private function missingS3Config(): array
+    {
+        $diskConfig = config('filesystems.disks.' . $this->diskName(), []);
+
+        return collect([
+            'bucket' => $diskConfig['bucket'] ?? null,
+            'endpoint' => $diskConfig['endpoint'] ?? null,
+            'access key' => $diskConfig['key'] ?? null,
+            'secret key' => $diskConfig['secret'] ?? null,
+            'region' => $diskConfig['region'] ?? null,
+        ])->filter(fn($value) => blank($value))->keys()->all();
     }
 
     private function driver(): string
@@ -182,6 +220,29 @@ class DocumentationVideoController extends Controller
         }
 
         return $this->documentationPath();
+    }
+
+    private function friendlyS3Error(\Throwable $exception): string
+    {
+        $message = $exception->getMessage();
+
+        if (str_contains($message, 'AccessDenied') || str_contains($message, '403')) {
+            return 'Acces refuse par le bucket. Verifiez ACCESS_KEY_ID, SECRET_ACCESS_KEY et que les variables du bucket sont bien liees au service Laravel.';
+        }
+
+        if (str_contains($message, 'NoSuchBucket') || str_contains($message, '404')) {
+            return 'Bucket introuvable. Verifiez que la variable BUCKET correspond au nom S3 du bucket Railway, pas seulement au nom affiche.';
+        }
+
+        if (str_contains($message, 'Could not resolve host') || str_contains($message, 'cURL error 6')) {
+            return 'Endpoint S3 introuvable. Verifiez ENDPOINT/AWS_ENDPOINT.';
+        }
+
+        if (str_contains($message, 'SSL') || str_contains($message, 'certificate')) {
+            return 'Erreur SSL avec l endpoint S3. Verifiez le style d URL indique dans les credentials Railway.';
+        }
+
+        return 'Erreur S3 : ' . Str::limit($message, 220);
     }
 
     private function descriptionFor(string $directory, string $basename): ?string
