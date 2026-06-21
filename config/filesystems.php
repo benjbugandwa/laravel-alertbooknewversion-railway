@@ -16,6 +16,14 @@ $envValue = static function (array $keys, mixed $default = null): mixed {
     return $default;
 };
 
+$documentationDisk = $envValue(['ALERTBOOK_DOCUMENTATION_DISK']);
+$documentationPrefix = $envValue(['ALERTBOOK_DOCUMENTATION_PREFIX']);
+$documentationDiskIsBucket = is_string($documentationDisk)
+    && !in_array($documentationDisk, ['s3', 'local', 'public'], true)
+    && !filter_var($documentationDisk, FILTER_VALIDATE_URL);
+$documentationPrefixIsEndpoint = is_string($documentationPrefix)
+    && filter_var($documentationPrefix, FILTER_VALIDATE_URL);
+
 return [
 
     /*
@@ -68,9 +76,15 @@ return [
             'key' => $envValue(['AWS_ACCESS_KEY_ID', 'ACCESS_KEY_ID']),
             'secret' => $envValue(['AWS_SECRET_ACCESS_KEY', 'SECRET_ACCESS_KEY']),
             'region' => $envValue(['AWS_DEFAULT_REGION', 'AWS_REGION', 'REGION'], 'auto'),
-            'bucket' => $envValue(['AWS_BUCKET', 'BUCKET']),
+            'bucket' => $envValue(
+                ['AWS_BUCKET', 'BUCKET', 'ALERTBOOK_DOCUMENTATION_BUCKET'],
+                $documentationDiskIsBucket ? $documentationDisk : null
+            ),
             'url' => $envValue(['AWS_URL']),
-            'endpoint' => $envValue(['AWS_ENDPOINT', 'ENDPOINT']),
+            'endpoint' => $envValue(
+                ['AWS_ENDPOINT', 'ENDPOINT', 'ALERTBOOK_DOCUMENTATION_ENDPOINT'],
+                $documentationPrefixIsEndpoint ? $documentationPrefix : null
+            ),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
             'report' => false,

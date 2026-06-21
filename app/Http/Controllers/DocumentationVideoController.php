@@ -88,10 +88,8 @@ class DocumentationVideoController extends Controller
     {
         try {
             $disk = Storage::disk($this->diskName());
-            $prefix = $this->prefix();
 
-            return collect($disk->allFiles($prefix))
-                ->filter(fn(string $path) => in_array(Str::lower(pathinfo($path, PATHINFO_EXTENSION)), self::EXTENSIONS, true))
+            return collect($this->s3VideoPaths($disk))
                 ->sortBy(fn(string $path) => $this->sortKey(basename($path)))
                 ->values()
                 ->map(function (string $path, int $index) use ($disk) {
@@ -124,7 +122,7 @@ class DocumentationVideoController extends Controller
     {
         if ($this->driver() === 's3') {
             try {
-                Storage::disk($this->diskName())->files($this->prefix());
+                Storage::disk($this->diskName())->allFiles($this->prefix());
                 return true;
             } catch (\Throwable) {
                 return false;
@@ -148,12 +146,22 @@ class DocumentationVideoController extends Controller
 
     private function diskName(): string
     {
-        return (string) config('alertbook.documentation.disk', 's3');
+        $configuredDisk = (string) config('alertbook.documentation.disk', 's3');
+
+        return array_key_exists($configuredDisk, config('filesystems.disks', []))
+            ? $configuredDisk
+            : 's3';
     }
 
     private function prefix(): string
     {
-        return trim((string) config('alertbook.documentation.prefix', 'documentation/videos'), '/');
+        $prefix = trim((string) config('alertbook.documentation.prefix', 'documentation/videos'), '/');
+
+        if ($prefix === '' || filter_var($prefix, FILTER_VALIDATE_URL)) {
+            return '';
+        }
+
+        return $prefix;
     }
 
     private function temporaryUrl(string $path): string
@@ -167,7 +175,10 @@ class DocumentationVideoController extends Controller
     private function sourceLabel(): string
     {
         if ($this->driver() === 's3') {
-            return $this->diskName() . ':' . $this->prefix();
+            $bucket = config('filesystems.disks.' . $this->diskName() . '.bucket') ?: 'bucket non configure';
+            $prefix = $this->prefix() ?: 'racine du bucket';
+
+            return $this->diskName() . ':' . $bucket . '/' . $prefix;
         }
 
         return $this->documentationPath();
@@ -205,6 +216,32 @@ class DocumentationVideoController extends Controller
         }
 
         return null;
+    }
+
+    private function s3VideoPaths($disk): array
+    {
+        $prefixes = collect([
+            $this->prefix(),
+            'documentation/videos',
+            '',
+        ])->unique()->values();
+
+        foreach ($prefixes as $prefix) {
+            try {
+                $paths = collect($disk->allFiles($prefix))
+                    ->filter(fn(string $path) => in_array(Str::lower(pathinfo($path, PATHINFO_EXTENSION)), self::EXTENSIONS, true))
+                    ->values()
+                    ->all();
+
+                if (!empty($paths)) {
+                    return $paths;
+                }
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return [];
     }
 
     private function titleFor(string $basename): string
