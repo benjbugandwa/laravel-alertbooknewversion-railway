@@ -67,14 +67,15 @@
             </div>
         </section>
 
-        @if (!$directoryExists)
+        @if (!$sourceAvailable)
             <section class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-                Le dossier de documentation est introuvable :
-                <span class="font-semibold">{{ $directory }}</span>
+                La source de documentation est introuvable ou inaccessible :
+                <span class="font-semibold">{{ $source }}</span>
             </section>
         @elseif (empty($videos))
             <section class="rounded-lg border border-gray-200 bg-white p-5 text-sm text-gray-700">
-                Aucune video n'a encore ete trouvee dans le dossier de documentation.
+                Aucune video n'a encore ete trouvee dans la source de documentation
+                <span class="font-semibold">{{ $source }}</span>.
             </section>
         @else
             <section class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">

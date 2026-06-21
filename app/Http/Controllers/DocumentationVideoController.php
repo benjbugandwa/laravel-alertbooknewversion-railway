@@ -4,8 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class DocumentationVideoController extends Controller
 {
@@ -13,21 +14,26 @@ class DocumentationVideoController extends Controller
 
     public function index()
     {
-        $directory = $this->documentationPath();
+        $source = $this->sourceLabel();
         $videos = $this->videos();
 
         return view('documentation.videos', [
-            'directory' => $directory,
-            'directoryExists' => File::isDirectory($directory),
+            'source' => $source,
+            'sourceAvailable' => $this->sourceAvailable(),
+            'driver' => $this->driver(),
             'videos' => $videos,
             'selectedVideo' => $videos[0] ?? null,
         ]);
     }
 
-    public function stream(Request $request, string $video): BinaryFileResponse
+    public function stream(Request $request, string $video): Response
     {
         $item = collect($this->videos())->firstWhere('key', $video);
         abort_if(!$item, 404);
+
+        if ($this->driver() === 's3') {
+            return redirect()->away($item['url']);
+        }
 
         return response()
             ->file($item['path'], [
@@ -39,6 +45,13 @@ class DocumentationVideoController extends Controller
     }
 
     private function videos(): array
+    {
+        return $this->driver() === 's3'
+            ? $this->s3Videos()
+            : $this->localVideos();
+    }
+
+    private function localVideos(): array
     {
         $directory = $this->documentationPath();
 
@@ -71,9 +84,93 @@ class DocumentationVideoController extends Controller
             ->all();
     }
 
+    private function s3Videos(): array
+    {
+        try {
+            $disk = Storage::disk($this->diskName());
+            $prefix = $this->prefix();
+
+            return collect($disk->allFiles($prefix))
+                ->filter(fn(string $path) => in_array(Str::lower(pathinfo($path, PATHINFO_EXTENSION)), self::EXTENSIONS, true))
+                ->sortBy(fn(string $path) => $this->sortKey(basename($path)))
+                ->values()
+                ->map(function (string $path, int $index) use ($disk) {
+                    $filename = basename($path);
+                    $basename = pathinfo($filename, PATHINFO_FILENAME);
+                    $key = substr(sha1($path), 0, 16);
+                    $description = $this->s3DescriptionFor(dirname($path), $basename);
+                    $lastModified = $this->safeLastModified($disk, $path);
+                    $size = $this->safeSize($disk, $path);
+
+                    return [
+                        'key' => $key,
+                        'index' => $index + 1,
+                        'filename' => $filename,
+                        'title' => $this->titleFor($basename),
+                        'description' => $description,
+                        'path' => $path,
+                        'url' => $this->temporaryUrl($path),
+                        'size' => $this->formatBytes($size),
+                        'updated_at' => $lastModified ? date('d/m/Y H:i', $lastModified) : 'N/A',
+                    ];
+                })
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    private function sourceAvailable(): bool
+    {
+        if ($this->driver() === 's3') {
+            try {
+                Storage::disk($this->diskName())->files($this->prefix());
+                return true;
+            } catch (\Throwable) {
+                return false;
+            }
+        }
+
+        return File::isDirectory($this->documentationPath());
+    }
+
+    private function driver(): string
+    {
+        return Str::lower((string) config('alertbook.documentation.driver', 'local')) === 's3'
+            ? 's3'
+            : 'local';
+    }
+
     private function documentationPath(): string
     {
-        return (string) config('alertbook.documentation_path');
+        return (string) config('alertbook.documentation.local_path');
+    }
+
+    private function diskName(): string
+    {
+        return (string) config('alertbook.documentation.disk', 's3');
+    }
+
+    private function prefix(): string
+    {
+        return trim((string) config('alertbook.documentation.prefix', 'documentation/videos'), '/');
+    }
+
+    private function temporaryUrl(string $path): string
+    {
+        return Storage::disk($this->diskName())->temporaryUrl(
+            $path,
+            now()->addSeconds((int) config('alertbook.documentation.temporary_url_ttl', 3600))
+        );
+    }
+
+    private function sourceLabel(): string
+    {
+        if ($this->driver() === 's3') {
+            return $this->diskName() . ':' . $this->prefix();
+        }
+
+        return $this->documentationPath();
     }
 
     private function descriptionFor(string $directory, string $basename): ?string
@@ -83,6 +180,27 @@ class DocumentationVideoController extends Controller
 
             if (File::isFile($path)) {
                 return trim((string) File::get($path)) ?: null;
+            }
+        }
+
+        return null;
+    }
+
+    private function s3DescriptionFor(string $directory, string $basename): ?string
+    {
+        $directory = trim($directory, '. /');
+
+        foreach (['txt', 'md'] as $extension) {
+            $path = ltrim($directory . '/' . $basename . '.' . $extension, '/');
+
+            try {
+                $disk = Storage::disk($this->diskName());
+
+                if ($disk->exists($path)) {
+                    return trim((string) $disk->get($path)) ?: null;
+                }
+            } catch (\Throwable) {
+                return null;
             }
         }
 
@@ -121,5 +239,23 @@ class DocumentationVideoController extends Controller
         }
 
         return round($bytes / (1024 * 1024), 1) . ' Mo';
+    }
+
+    private function safeSize($disk, string $path): int
+    {
+        try {
+            return (int) $disk->size($path);
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    private function safeLastModified($disk, string $path): ?int
+    {
+        try {
+            return (int) $disk->lastModified($path);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }
