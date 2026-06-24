@@ -79,22 +79,22 @@ class Index extends Component
 
     private function isSuperAdmin(): bool
     {
-        return $this->user()?->user_role === 'superadmin';
+        return (bool) $this->user()?->hasEffectiveRole('superadmin');
     }
 
     private function isAdmin(): bool
     {
-        return $this->user()?->user_role === 'admin';
+        return (bool) $this->user()?->hasEffectiveRole('admin');
     }
 
     private function isSuperviseur(): bool
     {
-        return $this->user()?->user_role === 'superviseur';
+        return (bool) $this->user()?->hasEffectiveRole('superviseur');
     }
 
     private function isMoniteur(): bool
     {
-        return $this->user()?->user_role === 'moniteur';
+        return (bool) $this->user()?->hasEffectiveRole('moniteur');
     }
 
     private function sameProvinceAsUser(Incident $incident): bool
@@ -236,7 +236,10 @@ class Index extends Component
 
         return \App\Models\User::query()
             ->where('is_active', true)
-            ->where('user_role', 'superviseur')
+            ->where(function ($query): void {
+                $query->where('user_role', 'superviseur')
+                    ->orWhereHas('roles', fn($roleQuery) => $roleQuery->where('slug', 'superviseur'));
+            })
             ->where('code_province', $incident->code_province)
             ->orderBy('name')
             ->get(['id', 'name', 'email'])
@@ -420,7 +423,7 @@ class Index extends Component
             $this->form->code_province = $this->user()->code_province;
         }
 
-        // try {
+        try {
         if ($this->editing && $this->editingId) {
             $incident = Incident::findOrFail($this->editingId);
 
@@ -451,12 +454,12 @@ class Index extends Component
 
         $this->dispatch('toast', message: "Incident créé : {$created->code_incident}", type: 'success', duration: 5000);
         $this->showModal = false;
-        /*  } catch (BusinessRuleException $e) {
+        } catch (BusinessRuleException $e) {
             $this->dispatch('toast', message: $e->getMessage(), type: 'warning', duration: 6500);
         } catch (\Throwable $e) {
             report($e);
             $this->dispatch('toast', message: "Erreur interne. Veuillez réessayer.", type: 'error', duration: 6500);
-        }*/
+        }
     }
 
     /* -------------------------------------------

@@ -11,6 +11,8 @@ return new class extends Migration
             return;
         }
 
+        DB::statement('CREATE SEQUENCE IF NOT EXISTS incident_code_seq START WITH 1 INCREMENT BY 1');
+
         // On PostgreSQL, on synchronise la séquence uniquement avec les codes numériques commençant par 'ALT-'
         // S'il n'y a pas d'incidents (base de données vide), on ne fait rien pour éviter setval(..., 0)
         DB::statement("

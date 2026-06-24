@@ -76,16 +76,41 @@ class User extends Authenticatable
 
     public function hasRole(string $slug): bool
     {
+        $this->loadMissing('roles');
+
         return $this->roles->contains('slug', $slug);
     }
 
     public function hasAnyRole(array $slugs): bool
     {
+        $this->loadMissing('roles');
+
         return $this->roles->whereIn('slug', $slugs)->isNotEmpty();
     }
 
     public function isSuperAdmin(): bool
     {
-        return $this->hasRole('superadmin');
+        return $this->hasEffectiveRole('superadmin');
+    }
+
+    public function hasEffectiveRole(string $slug): bool
+    {
+        return $this->user_role === $slug || $this->hasRole($slug);
+    }
+
+    public function hasAnyEffectiveRole(array $slugs): bool
+    {
+        return in_array($this->user_role, $slugs, true) || $this->hasAnyRole($slugs);
+    }
+
+    public function effectiveRole(): ?string
+    {
+        if ($this->user_role) {
+            return $this->user_role;
+        }
+
+        $this->loadMissing('roles');
+
+        return $this->roles->first()?->slug;
     }
 }

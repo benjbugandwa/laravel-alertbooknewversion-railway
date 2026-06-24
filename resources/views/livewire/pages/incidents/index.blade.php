@@ -1,4 +1,10 @@
 <div class="space-y-6 relative" x-data x-on:open-url.window="window.open($event.detail.url, '_blank')">
+    @php
+        $currentUser = auth()->user();
+        $isSuperAdmin = (bool) $currentUser?->hasEffectiveRole('superadmin');
+        $isMoniteur = (bool) $currentUser?->hasEffectiveRole('moniteur');
+    @endphp
+
     <div wire:loading
         class="absolute inset-0 z-50 flex items-center justify-center bg-white/50 backdrop-blur-sm rounded-2xl">
         <div class="flex flex-col items-center gap-2">
@@ -58,7 +64,7 @@
             </div>
 
             {{-- Province (superadmin seulement) --}}
-            @if (auth()->user()->user_role === 'superadmin')
+            @if ($isSuperAdmin)
                 <div class="space-y-1">
                     <label class="text-sm font-medium text-gray-700">Province</label>
                     <select wire:model.live="f_province"
@@ -174,15 +180,18 @@
                         </button>
 
                         {{-- Dropdown actions --}}
-                        <div x-data="{ open: false, top: 0, left: 0 }" class="relative" @scroll.window="open = false">
+                        <div x-data="{ open: false, top: 0, left: 0, menuHeight: 320 }" class="relative" @scroll.window="open = false" @resize.window="open = false">
                             <button type="button" x-ref="btn"
                                 class="bg-onu text-white hover:bg-onu-dark rounded-lg px-3 py-1.5 text-sm transition inline-flex items-center gap-1"
                                 @click="
                                     open = !open;
                                     if(open) {
                                         let rect = $refs.btn.getBoundingClientRect();
-                                        top = rect.bottom;
-                                        left = rect.right - 192;
+                                        let availableBelow = window.innerHeight - rect.bottom;
+                                        top = availableBelow < menuHeight && rect.top > menuHeight
+                                            ? rect.top - menuHeight - 8
+                                            : rect.bottom + 8;
+                                        left = Math.min(Math.max(8, rect.right - 192), window.innerWidth - 200);
                                     }
                                 ">
                                 Actions
@@ -195,8 +204,8 @@
 
                             <template x-teleport="body">
                                 <div x-cloak x-show="open" @click.outside="open=false"
-                                    :style="`top: ${top}px; left: ${left}px; position: fixed; margin-top: 0.5rem;`"
-                                    class="w-48 rounded-xl border bg-white shadow-lg overflow-hidden z-[100]">
+                                    :style="`top: ${top}px; left: ${left}px; position: fixed; max-height: calc(100vh - 1rem);`"
+                                    class="w-48 rounded-xl border bg-white shadow-lg overflow-y-auto z-[100]">
 
                                     {{-- Show Details Incidents --}}
                                     <a href="{{ route('incidents.show', $inc->id) }}"
@@ -207,7 +216,7 @@
 
                                     {{-- Éditer --}}
                                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-                                        wire:click="openEdit('{{ $inc->id }}')" @disabled(auth()->user()->user_role === 'moniteur' || in_array($inc->statut_incident, ['Cloturée', 'Archivé']))>
+                                        wire:click="openEdit('{{ $inc->id }}')" @disabled($isMoniteur || in_array($inc->statut_incident, ['Cloturée', 'Archivé']))>
                                         Éditer
                                     </button>
 
@@ -225,14 +234,14 @@
 
                                     {{-- Assigner --}}
                                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-                                        wire:click="openAssign('{{ $inc->id }}')" @disabled(auth()->user()->user_role === 'moniteur' || in_array($inc->statut_incident, ['Cloturée', 'Archivé']))>
+                                        wire:click="openAssign('{{ $inc->id }}')" @disabled($isMoniteur || in_array($inc->statut_incident, ['Cloturée', 'Archivé']))>
                                         Assigner
                                     </button>
 
                                     {{-- Valider --}}
                                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
                                         wire:click="askConfirmValidate('{{ $inc->id }}')"
-                                        @disabled(auth()->user()->user_role === 'moniteur' ||
+                                        @disabled($isMoniteur ||
                                                 in_array($inc->statut_incident, ['Cloturée', 'Archivé']) ||
                                                 $inc->statut_incident === 'Validé')>
                                         Valider
@@ -244,7 +253,7 @@
                                     <button
                                         class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-red-600 disabled:opacity-50"
                                         wire:click="askConfirmArchive('{{ $inc->id }}')"
-                                        @disabled(auth()->user()->user_role === 'moniteur' || in_array($inc->statut_incident, ['Cloturée', 'Archivé']))>
+                                        @disabled($isMoniteur || in_array($inc->statut_incident, ['Cloturée', 'Archivé']))>
                                         Archiver
                                     </button>
                                 </div>
@@ -363,8 +372,8 @@
                                 <label class="text-sm font-medium text-gray-700">Province *</label>
                                 <select wire:model.live="form.code_province"
                                     class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
-                                    @disabled(auth()->user()->user_role !== 'superadmin')>
-                                    @if (auth()->user()->user_role !== 'superadmin')
+                                    @disabled(!$isSuperAdmin)>
+                                    @if (!$isSuperAdmin)
                                         <option value="{{ auth()->user()->code_province }}">
                                             {{ auth()->user()->code_province }}</option>
                                     @else
