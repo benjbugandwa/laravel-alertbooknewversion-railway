@@ -70,7 +70,7 @@
                     <x-nav-link href="{{ route('incidents.index') }}" :active="request()->routeIs('incidents.*')"
                         icon="alert-triangle">Alertes</x-nav-link>
 
-                    @if(auth()->user()->user_role !== 'moniteur')
+                    @if(!auth()->user()->hasRole('moniteur'))
                         <x-nav-link href="{{ route('mouvements.standalone') }}" :active="request()->routeIs('mouvements.*')"
                             icon="truck">Déplacements</x-nav-link>
                     @endif
@@ -96,7 +96,10 @@
                         Utilisateurs
                     </x-nav-link>
 
-                    @if (auth()->user()->user_role === 'superadmin')
+                    @if (auth()->user()->hasRole('superadmin'))
+                        <x-nav-link href="{{ route('monitor-assignments.index') }}" :active="request()->routeIs('monitor-assignments.*')" icon="user-check">
+                            Assignations moniteurs
+                        </x-nav-link>
                         <x-nav-link href="{{ route('auteurs.index') }}" :active="request()->routeIs('auteurs.*')" icon="user-cog">
                             Auteurs présumés
                         </x-nav-link>
@@ -149,7 +152,7 @@
                         <x-nav-link href="{{ route('incidents.index') }}" :active="false"
                             icon="alert-triangle" @click="close()">Alertes</x-nav-link>
 
-                        @if(auth()->user()->user_role !== 'moniteur')
+                        @if(!auth()->user()->hasRole('moniteur'))
                             <x-nav-link href="{{ route('mouvements.standalone') }}" :active="false"
                                 icon="truck" @click="close()">Déplacements</x-nav-link>
                         @endif
@@ -164,7 +167,9 @@
                         <x-nav-link href="{{ route('users.index') }}" :active="false"
                             icon="users" @click="close()">Utilisateurs</x-nav-link>
 
-                        @if (auth()->user()->user_role === 'superadmin')
+                        @if (auth()->user()->hasRole('superadmin'))
+                            <x-nav-link href="{{ route('monitor-assignments.index') }}" :active="request()->routeIs('monitor-assignments.*')"
+                                icon="user-check" @click="close()">Assignations moniteurs</x-nav-link>
                             <x-nav-link href="{{ route('auteurs.index') }}" :active="request()->routeIs('auteurs.*')"
                                 icon="user-cog" @click="close()">Auteurs présumés</x-nav-link>
                         @endif

@@ -4,6 +4,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -20,7 +21,7 @@ new #[Layout('layouts.guest')] class extends Component {
 
     public function mount()
     {
-        $this->organisations = \App\Models\Organisation::orderBy('org_name')->get();
+        $this->organisations = \App\Models\Organisation::active()->orderBy('org_name')->get();
         $this->provinces = \App\Models\Province::where('is_active', 'YES')->orderBy('nom_province')->get();
     }
 
@@ -34,7 +35,7 @@ new #[Layout('layouts.guest')] class extends Component {
                 'name' => ['required', 'string', 'max:255'],
                 'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . \App\Models\User::class],
                 'password' => ['required', 'string', \Illuminate\Validation\Rules\Password::defaults(), 'confirmed'],
-                'org_id' => ['required', 'exists:organisations,id'],
+                'org_id' => ['required', Rule::exists('organisations', 'id')->where('is_active', true)],
                 'code_province' => ['required', 'exists:provinces,code_province'],
             ],
             [

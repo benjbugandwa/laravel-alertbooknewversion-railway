@@ -1,8 +1,8 @@
 <div class="space-y-6 relative" x-data x-on:open-url.window="window.open($event.detail.url, '_blank')">
     @php
         $currentUser = auth()->user();
-        $isSuperAdmin = (bool) $currentUser?->hasEffectiveRole('superadmin');
-        $isMoniteur = (bool) $currentUser?->hasEffectiveRole('moniteur');
+        $isSuperAdmin = (bool) $currentUser?->hasRole('superadmin');
+        $isMoniteur = (bool) $currentUser?->hasRole('moniteur');
     @endphp
 
     <div wire:loading
@@ -216,7 +216,7 @@
 
                                     {{-- Éditer --}}
                                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-                                        wire:click="openEdit('{{ $inc->id }}')" @disabled($isMoniteur || in_array($inc->statut_incident, ['Cloturée', 'Archivé']))>
+                                        wire:click="openEdit('{{ $inc->id }}')" @disabled($isMoniteur || in_array($inc->statut_incident, ['Validé', 'Cloturée', 'Archivé']))>
                                         Éditer
                                     </button>
 
@@ -489,6 +489,17 @@
                                 @endforeach
                             </select>
                             @error('form.source_info')
+                                <div class="text-sm text-red-600">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium text-gray-700">Contact source</label>
+                            <input type="text" inputmode="numeric" pattern="[0-9]{10}" maxlength="10"
+                                wire:model.defer="form.contact_source"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)"
+                                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-onu"
+                                placeholder="10 chiffres">
+                            @error('form.contact_source')
                                 <div class="text-sm text-red-600">{{ $message }}</div>
                             @enderror
                         </div>

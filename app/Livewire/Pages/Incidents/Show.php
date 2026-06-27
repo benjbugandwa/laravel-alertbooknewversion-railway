@@ -6,8 +6,10 @@ use App\Models\Incident;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Models\AuditLog;
+use App\Exceptions\BusinessRuleException;
 use App\Services\IncidentDuplicateService;
 use App\Services\IncidentQualityService;
+use App\Services\IncidentService;
 use App\Services\IncidentSlaService;
 use App\Services\IncidentTimelineService;
 
@@ -20,6 +22,13 @@ class Show extends Component
     public string $confirmTitle = '';
     public string $confirmMessage = '';
     public string $confirmAction = ''; // 'validate'
+
+    public bool $showCoordinatesModal = false;
+    public ?string $longitude = null;
+    public ?string $latitude = null;
+
+    public bool $showCloseModal = false;
+    public string $closeComment = '';
 
     protected $listeners = ['violences-updated' => 'refreshIncident'];
 
@@ -39,7 +48,7 @@ class Show extends Component
         // Sécurité province (superadmin voit tout)
         $user = Auth::user();
 
-        if ($user->user_role !== 'superadmin' && $incident->code_province !== $user->code_province) {
+        if (!$user->hasRole('superadmin') && $incident->code_province !== $user->code_province) {
             abort(403);
         }
 
@@ -61,9 +70,7 @@ class Show extends Component
 
     private function canValidate(): bool
     {
-        $role = Auth::user()->user_role;
-
-        if (!in_array($role, ['superadmin', 'admin', 'superviseur'], true)) {
+        if (!Auth::user()->hasAnyRole(['superadmin', 'admin', 'superviseur'])) {
             return false;
         }
 
@@ -142,10 +149,8 @@ class Show extends Component
 
     private function canArchive(): bool
     {
-        $role = Auth::user()->user_role;
-
         // seuls admin/superviseur/superadmin
-        if (!in_array($role, ['superadmin', 'admin', 'superviseur'], true)) {
+        if (!Auth::user()->hasAnyRole(['superadmin', 'admin', 'superviseur'])) {
             return false;
         }
 
@@ -155,6 +160,100 @@ class Show extends Component
         }
 
         return true;
+    }
+
+    private function canManage(): bool
+    {
+        $user = Auth::user();
+
+        if (!$user?->hasAnyRole(['superadmin', 'admin', 'superviseur'])) {
+            return false;
+        }
+
+        return $user->hasRole('superadmin') || $this->incident->code_province === $user->code_province;
+    }
+
+    public function openCoordinatesModal(): void
+    {
+        if (!$this->canManage()) {
+            $this->dispatch('toast', message: "Action non autorisée.", type: 'warning', duration: 6000);
+            return;
+        }
+
+        $this->resetValidation();
+        $this->longitude = $this->incident->longitude !== null ? (string) $this->incident->longitude : null;
+        $this->latitude = $this->incident->latitude !== null ? (string) $this->incident->latitude : null;
+        $this->showCoordinatesModal = true;
+    }
+
+    public function saveCoordinates(): void
+    {
+        $this->validate([
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+        ], [
+            'longitude.numeric' => 'La longitude doit etre un nombre valide.',
+            'longitude.between' => 'La longitude doit etre comprise entre -180 et 180.',
+            'latitude.numeric' => 'La latitude doit etre un nombre valide.',
+            'latitude.between' => 'La latitude doit etre comprise entre -90 et 90.',
+        ]);
+
+        try {
+            $incidentService = app(IncidentService::class);
+
+            $incidentService->updateCoordinates(
+                incident: $this->incident,
+                longitude: $this->longitude !== null && $this->longitude !== '' ? (float) $this->longitude : null,
+                latitude: $this->latitude !== null && $this->latitude !== '' ? (float) $this->latitude : null,
+                actor: Auth::user(),
+                ipAddress: request()->ip()
+            );
+
+            $this->showCoordinatesModal = false;
+            $this->refreshIncident();
+            $this->dispatch('toast', message: "Coordonnées GPS mises à jour.", type: 'success', duration: 5000);
+        } catch (BusinessRuleException $e) {
+            $this->dispatch('toast', message: $e->getMessage(), type: 'warning', duration: 6500);
+        }
+    }
+
+    public function openCloseModal(): void
+    {
+        if (!$this->canManage() || $this->incident->statut_incident !== 'Validé') {
+            $this->dispatch('toast', message: "Seul un incident validé peut être clôturé.", type: 'warning', duration: 6000);
+            return;
+        }
+
+        $this->resetValidation();
+        $this->closeComment = '';
+        $this->showCloseModal = true;
+    }
+
+    public function closeIncident(): void
+    {
+        $this->validate([
+            'closeComment' => ['required', 'string', 'min:5', 'max:1000'],
+        ], [
+            'closeComment.required' => 'Le commentaire de clôture est obligatoire.',
+            'closeComment.min' => 'Le commentaire de clôture doit contenir au moins 5 caractères.',
+        ]);
+
+        try {
+            $incidentService = app(IncidentService::class);
+
+            $incidentService->closeIncident(
+                incident: $this->incident,
+                comment: $this->closeComment,
+                actor: Auth::user(),
+                ipAddress: request()->ip()
+            );
+
+            $this->showCloseModal = false;
+            $this->refreshIncident();
+            $this->dispatch('toast', message: "Incident clôturé avec succès.", type: 'success', duration: 5000);
+        } catch (BusinessRuleException $e) {
+            $this->dispatch('toast', message: $e->getMessage(), type: 'warning', duration: 6500);
+        }
     }
 
     public function askConfirmArchive(): void

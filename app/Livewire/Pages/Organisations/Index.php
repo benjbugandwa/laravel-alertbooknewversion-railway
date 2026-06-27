@@ -15,6 +15,7 @@ class Index extends Component
 
     public string $q = '';
     public int $perPage = 10;
+    public string $statusFilter = '';
 
     public bool $showModal = false;
     public bool $editing = false;
@@ -53,10 +54,14 @@ class Index extends Component
     {
         $this->resetPage();
     }
+    public function updatingStatusFilter(): void
+    {
+        $this->resetPage();
+    }
 
     private function isAllowed(): bool
     {
-        return in_array(Auth::user()->user_role, ['admin', 'superadmin'], true);
+        return Auth::user()?->hasAnyRole(['admin', 'superadmin']) ?? false;
     }
 
     private function rules(bool $editing = false): array
@@ -174,9 +179,34 @@ class Index extends Component
         $this->showModal = false;
     }
 
+    public function toggleActive(int $id): void
+    {
+        if (!Auth::user()?->hasRole('superadmin')) {
+            $this->dispatch('toast', message: "Accès refusé.", type: 'error', duration: 5000);
+            return;
+        }
+
+        $org = Organisation::findOrFail($id);
+        $org->is_active = !$org->is_active;
+        $org->save();
+
+        $this->dispatch(
+            'toast',
+            message: $org->is_active ? "Organisation réactivée." : "Organisation désactivée.",
+            type: 'success',
+            duration: 5000
+        );
+    }
+
     public function render()
     {
         $query = Organisation::query();
+
+        if ($this->statusFilter === 'active') {
+            $query->where('is_active', true);
+        } elseif ($this->statusFilter === 'inactive') {
+            $query->where('is_active', false);
+        }
 
         if (trim($this->q) !== '') {
             $s = '%' . trim($this->q) . '%';

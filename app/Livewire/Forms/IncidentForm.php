@@ -40,6 +40,9 @@ class IncidentForm extends Form
     #[Validate('required|in:Population locale,Humanitaires,Autorités administratives,Société civile,Autres')]
     public ?string $source_info = 'Population locale';
 
+    #[Validate('nullable|digits:10', message: 'Numéro de téléphone incorrect')]
+    public ?string $contact_source = '';
+
     #[Validate('nullable|string')]
     public ?string $description_faits = '';
 
@@ -71,6 +74,7 @@ class IncidentForm extends Form
             $this->code_zonesante = $incident->code_zonesante ?? '';
             $this->localite = $incident->localite ?? '';
             $this->source_info = $incident->source_info ?? '';
+            $this->contact_source = $incident->contact_source ?? '';
             $this->description_faits = $incident->description_faits ?? '';
             $this->confidentiality_level = $incident->confidentiality_level ?? 'Standard';
             $this->code_chefferie = $incident->code_chefferie;

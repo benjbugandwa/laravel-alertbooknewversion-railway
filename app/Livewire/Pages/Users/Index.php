@@ -220,7 +220,7 @@ class Index extends Component
         return view('livewire.pages.users.index', [
             'users' => $query->orderByDesc('id')->paginate(10),
             'roles' => Role::orderBy('name')->get(),
-            'organisations' => Organisation::orderBy('org_name')->get(),
+            'organisations' => Organisation::active()->orderBy('org_name')->get(),
             'provinces' => Province::orderBy('nom_province')->get(),
             'counts' => [
                 'pending' => $pendingCount,

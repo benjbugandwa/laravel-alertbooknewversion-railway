@@ -91,7 +91,7 @@
                     class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-sm font-medium transition shadow-sm text-gray-700">
                     📥 Exporter Matrice Excel
                 </a>
-                @if ($this->canWrite())
+                @if ($this->canWrite() && $this->incidentHasViolences())
                     <x-ui-button wire:click="openCreate">
                         + Ajouter Victimes
                     </x-ui-button>
@@ -99,6 +99,11 @@
             </div>
         </div>
 
+        @if (!$this->incidentHasViolences())
+            <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-5 text-sm text-yellow-800">
+                Aucune violation n'a été rapporté pour cette alerte
+            </div>
+        @else
         {{-- Table --}}
         <div class="overflow-x-auto bg-white border border-gray-200 rounded-2xl shadow-sm">
             <table class="min-w-full text-sm border-collapse">
@@ -203,6 +208,7 @@
                 </tbody>
             </table>
         </div>
+        @endif
 
         {{-- Modal Create/Edit --}}
         @if ($showModal)

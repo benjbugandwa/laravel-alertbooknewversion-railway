@@ -32,7 +32,13 @@
                 Briefing PDF
             </a>
 
-            @if (in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur']) &&
+            @if (auth()->user()->hasAnyRole(['superadmin', 'admin', 'superviseur']))
+                <x-ui-button variant="secondary" wire:click="openCoordinatesModal">
+                    GPS
+                </x-ui-button>
+            @endif
+
+            @if (auth()->user()->hasAnyRole(['superadmin', 'admin', 'superviseur']) &&
                     !in_array($incident->statut_incident, ['Cloturée', 'Archivé']))
                 {{-- Valider (si pas déjà validé) --}}
                 @if ($incident->statut_incident !== 'Validé')
@@ -45,6 +51,12 @@
                 <x-ui-button variant="danger" wire:click="askConfirmArchive">
                     Archiver
                 </x-ui-button>
+
+                @if ($incident->statut_incident === 'Validé')
+                    <x-ui-button variant="danger" wire:click="openCloseModal">
+                        Clôturer
+                    </x-ui-button>
+                @endif
             @endif
         </div>
     </div>
@@ -92,6 +104,9 @@
 
             <div class="md:col-span-2"><span class="text-gray-500">Localité :</span> <span
                     class="font-medium">{{ $incident->localite ?? '-' }}</span></div>
+            <div><span class="text-gray-500">Longitude :</span> <span class="font-medium">{{ $incident->longitude ?? '-' }}</span></div>
+            <div><span class="text-gray-500">Latitude :</span> <span class="font-medium">{{ $incident->latitude ?? '-' }}</span></div>
+            <div class="md:col-span-2"><span class="text-gray-500">Contact source :</span> <span class="font-medium">{{ $incident->contact_source ?? '-' }}</span></div>
 
             <div class="md:col-span-2">
                 <div class="text-gray-500 mb-1">Description</div>
@@ -243,7 +258,7 @@
                                                 {{ \Carbon\Carbon::parse($v->pivot->created_at)->format('Y-m-d H:i') }}
                                             @endif
                                         </div>
-                                        @if (auth()->user()->user_role !== 'moniteur')
+                                        @if (!auth()->user()->hasRole('moniteur'))
                                             <a href="{{ route('victimes.index', ['incident' => $incident->id, 'add_for_violence' => $v->id]) }}"
                                                 class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-onu/20 text-[11px] font-semibold text-onu hover:bg-onu/5 bg-white transition shadow-sm">
                                                 👥 Saisir victimes
@@ -263,12 +278,81 @@
         @endif
     </x-ui-card>
 
-    @if (!in_array($incident->statut_incident, ['Cloturée', 'Archivé']) && auth()->user()->user_role !== 'moniteur')
+    @if (!in_array($incident->statut_incident, ['Cloturée', 'Archivé']) && !auth()->user()->hasRole('moniteur'))
         <x-ui-button variant="secondary" wire:click="$dispatch('openIncidentViolences', '{{ $incident->id }}')">
             Modifier les violences
         </x-ui-button>
 
         <livewire:components.incident-violences-modal />
+    @endif
+
+    @if ($showCoordinatesModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data
+            x-on:keydown.escape.window="$wire.set('showCoordinatesModal', false)">
+            <div class="absolute inset-0 bg-black/50" wire:click="$set('showCoordinatesModal', false)"></div>
+
+            <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl border overflow-hidden">
+                <div class="px-5 py-4 border-b flex items-center justify-between">
+                    <div class="font-semibold">Mettre à jour les coordonnées GPS</div>
+                    <button type="button" class="opacity-60 hover:opacity-100"
+                        wire:click="$set('showCoordinatesModal', false)">x</button>
+                </div>
+
+                <div class="p-5 space-y-4">
+                    <div class="space-y-1">
+                        <label class="text-sm font-medium text-gray-700">Longitude</label>
+                        <input type="number" step="0.000001" min="-180" max="180" wire:model.defer="longitude"
+                            class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
+                        @error('longitude') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-sm font-medium text-gray-700">Latitude</label>
+                        <input type="number" step="0.000001" min="-90" max="90" wire:model.defer="latitude"
+                            class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
+                        @error('latitude') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
+                    </div>
+                </div>
+
+                <div class="px-5 py-4 border-t bg-white flex justify-end gap-2">
+                    <x-ui-button variant="secondary" wire:click="$set('showCoordinatesModal', false)">Annuler</x-ui-button>
+                    <x-ui-button wire:click="saveCoordinates" wire:loading.attr="disabled">
+                        <span wire:loading.remove>Enregistrer</span>
+                        <span wire:loading>Traitement...</span>
+                    </x-ui-button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if ($showCloseModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data
+            x-on:keydown.escape.window="$wire.set('showCloseModal', false)">
+            <div class="absolute inset-0 bg-black/50" wire:click="$set('showCloseModal', false)"></div>
+
+            <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border overflow-hidden">
+                <div class="px-5 py-4 border-b flex items-center justify-between">
+                    <div class="font-semibold">Clôturer l'incident</div>
+                    <button type="button" class="opacity-60 hover:opacity-100"
+                        wire:click="$set('showCloseModal', false)">x</button>
+                </div>
+
+                <div class="p-5 space-y-2">
+                    <label class="text-sm font-medium text-gray-700">Commentaire de clôture *</label>
+                    <textarea wire:model.defer="closeComment" rows="4"
+                        class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-onu"></textarea>
+                    @error('closeComment') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
+                    <div class="text-xs text-gray-500">Seuls les incidents validés peuvent être clôturés.</div>
+                </div>
+
+                <div class="px-5 py-4 border-t bg-white flex justify-end gap-2">
+                    <x-ui-button variant="secondary" wire:click="$set('showCloseModal', false)">Annuler</x-ui-button>
+                    <x-ui-button variant="danger" wire:click="closeIncident" wire:loading.attr="disabled">
+                        <span wire:loading.remove>Clôturer</span>
+                        <span wire:loading>Traitement...</span>
+                    </x-ui-button>
+                </div>
+            </div>
+        </div>
     @endif
 
     {{-- Modale de confirmation avant validation --}}

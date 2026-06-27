@@ -76,7 +76,7 @@ class Index extends Component
         }
 
         // Load organisations list for autocomplete datalist
-        $this->organisations = Organisation::orderBy('org_name')->get(['org_name', 'org_sigle'])->toArray();
+        $this->organisations = Organisation::active()->orderBy('org_name')->get(['org_name', 'org_sigle'])->toArray();
     }
 
     public function updatedSelectedIncidentId($value)

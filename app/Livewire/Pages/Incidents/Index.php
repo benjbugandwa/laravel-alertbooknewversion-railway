@@ -79,22 +79,22 @@ class Index extends Component
 
     private function isSuperAdmin(): bool
     {
-        return (bool) $this->user()?->hasEffectiveRole('superadmin');
+        return (bool) $this->user()?->hasRole('superadmin');
     }
 
     private function isAdmin(): bool
     {
-        return (bool) $this->user()?->hasEffectiveRole('admin');
+        return (bool) $this->user()?->hasRole('admin');
     }
 
     private function isSuperviseur(): bool
     {
-        return (bool) $this->user()?->hasEffectiveRole('superviseur');
+        return (bool) $this->user()?->hasRole('superviseur');
     }
 
     private function isMoniteur(): bool
     {
-        return (bool) $this->user()?->hasEffectiveRole('moniteur');
+        return (bool) $this->user()?->hasRole('moniteur');
     }
 
     private function sameProvinceAsUser(Incident $incident): bool
@@ -111,6 +111,7 @@ class Index extends Component
     private function canEditIncident(Incident $incident): bool
     {
         if ($this->isMoniteur()) return false;
+        if ($incident->statut_incident === 'Validé') return false;
         if ($this->isLocked($incident)) return false;
         if (!$this->isSuperAdmin() && !$this->sameProvinceAsUser($incident)) return false;
         return true;
@@ -236,10 +237,7 @@ class Index extends Component
 
         return \App\Models\User::query()
             ->where('is_active', true)
-            ->where(function ($query): void {
-                $query->where('user_role', 'superviseur')
-                    ->orWhereHas('roles', fn($roleQuery) => $roleQuery->where('slug', 'superviseur'));
-            })
+            ->whereHas('roles', fn($roleQuery) => $roleQuery->where('slug', 'superviseur'))
             ->where('code_province', $incident->code_province)
             ->orderBy('name')
             ->get(['id', 'name', 'email'])

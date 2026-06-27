@@ -15,6 +15,16 @@
             <x-ui-input label="Recherche" placeholder="Sigle, nom, catégorie…" wire:model.live="q" />
 
             <div class="space-y-1">
+                <label class="text-sm font-medium text-gray-700">Statut</label>
+                <select wire:model.live="statusFilter"
+                    class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
+                    <option value="">Toutes</option>
+                    <option value="active">Actives</option>
+                    <option value="inactive">Désactivées</option>
+                </select>
+            </div>
+
+            <div class="space-y-1">
                 <label class="text-sm font-medium text-gray-700">Pagination</label>
                 <select wire:model.live="perPage"
                     class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
@@ -26,7 +36,7 @@
         </div>
     </x-ui-card>
 
-    <x-ui-table :headers="['Sigle', 'Nom', 'Catégorie', 'Secteurs', 'Actions']">
+    <x-ui-table :headers="['Sigle', 'Nom', 'Catégorie', 'Secteurs', 'Statut', 'Actions']">
         @forelse($organisations as $o)
             <tr>
                 <td class="px-4 py-3 font-medium">{{ $o->org_sigle ?? '—' }}</td>
@@ -49,14 +59,28 @@
                     @endif
                 </td>
                 <td class="px-4 py-3">
+                    @if ($o->is_active)
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full border bg-green-100 text-green-800 border-green-200">Active</span>
+                    @else
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full border bg-gray-100 text-gray-700 border-gray-200">Désactivée</span>
+                    @endif
+                </td>
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
                     <x-ui-button size="sm" variant="secondary" wire:click="openEdit({{ $o->id }})">
                         Éditer
                     </x-ui-button>
+                    @if (auth()->user()->hasRole('superadmin'))
+                        <x-ui-button size="sm" :variant="$o->is_active ? 'danger' : 'primary'" wire:click="toggleActive({{ $o->id }})" wire:loading.attr="disabled">
+                            {{ $o->is_active ? 'Désactiver' : 'Réactiver' }}
+                        </x-ui-button>
+                    @endif
+                    </div>
                 </td>
             </tr>
         @empty
             <tr>
-                <td colspan="5" class="px-4 py-6 text-center text-gray-600">Aucune organisation trouvée.</td>
+                <td colspan="6" class="px-4 py-6 text-center text-gray-600">Aucune organisation trouvée.</td>
             </tr>
         @endforelse
     </x-ui-table>

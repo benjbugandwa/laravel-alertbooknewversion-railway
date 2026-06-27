@@ -42,6 +42,7 @@ class Incident extends Model
         'code_zonesante',
         'localite',
         'source_info',
+        'contact_source',
         'description_faits',
         'created_at',
         'assigned_to',

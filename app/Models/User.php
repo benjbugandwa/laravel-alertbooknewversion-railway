@@ -9,6 +9,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -72,6 +73,16 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Role::class, 'roles_users', 'user_id', 'role_id')
             ->withTimestamps();
+    }
+
+    public function monitorAssignments(): HasMany
+    {
+        return $this->hasMany(MonitorSupervisorAssignment::class, 'monitor_id');
+    }
+
+    public function supervisedMonitorAssignments(): HasMany
+    {
+        return $this->hasMany(MonitorSupervisorAssignment::class, 'supervisor_id');
     }
 
     public function hasRole(string $slug): bool

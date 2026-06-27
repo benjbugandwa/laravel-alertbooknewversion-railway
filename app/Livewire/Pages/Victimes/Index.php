@@ -32,7 +32,7 @@ class Index extends Component
 
         // Load incidents list for selection dropdown
         $incidentsQuery = Incident::orderByDesc('created_at');
-        if ($user->user_role !== 'superadmin' && $user->code_province) {
+        if (!$user->hasRole('superadmin') && $user->code_province) {
             $incidentsQuery->where('code_province', $user->code_province);
         }
         $this->all_incidents = $incidentsQuery->get(['id', 'code_incident', 'localite', 'date_incident'])->toArray();
@@ -43,7 +43,7 @@ class Index extends Component
         } else {
             // Default to most recent incident
             $first = Incident::orderByDesc('created_at');
-            if ($user->user_role !== 'superadmin' && $user->code_province) {
+            if (!$user->hasRole('superadmin') && $user->code_province) {
                 $first->where('code_province', $user->code_province);
             }
             $this->incident = $first->first();
@@ -56,7 +56,7 @@ class Index extends Component
 
         // Handle auto-open of modal from incident show page
         $addForViolence = request()->query('add_for_violence');
-        if ($addForViolence && $this->incident) {
+        if ($addForViolence && $this->incident && $this->incidentHasViolences()) {
             $this->openCreate();
             $this->form->violence_id = (int)$addForViolence;
         }
@@ -72,7 +72,7 @@ class Index extends Component
 
     public function canWrite()
     {
-        return in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur'], true);
+        return auth()->user()->hasAnyRole(['superadmin', 'admin', 'superviseur']);
     }
 
     public function loadViolencesOptions()
@@ -87,10 +87,20 @@ class Index extends Component
         }
     }
 
+    public function incidentHasViolences(): bool
+    {
+        return $this->incident && $this->incident->violences()->exists();
+    }
+
     public function openCreate()
     {
         if (!$this->canWrite()) {
             $this->dispatch('toast', message: 'Action non autorisée pour votre rôle.', type: 'error');
+            return;
+        }
+
+        if (!$this->incidentHasViolences()) {
+            $this->dispatch('toast', message: "Aucune violation n'a été rapporté pour cette alerte", type: 'warning', duration: 6000);
             return;
         }
 
@@ -123,6 +133,11 @@ class Index extends Component
     {
         if (!$this->canWrite()) {
             $this->dispatch('toast', message: 'Action non autorisée.', type: 'error');
+            return;
+        }
+
+        if (!$this->incidentHasViolences()) {
+            $this->dispatch('toast', message: "Aucune violation n'a été rapporté pour cette alerte", type: 'warning', duration: 6000);
             return;
         }
 

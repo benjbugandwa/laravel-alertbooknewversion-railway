@@ -10,6 +10,7 @@ use App\Livewire\Pages\Users\Profile;
 use App\Livewire\Pages\Survivants\Index as SurvivantsIndex;
 use App\Livewire\Pages\Incidents\Index as IncidentsIndex;
 use App\Livewire\Pages\Incidents\Show as IncidentsShow;
+use App\Livewire\Pages\MonitorAssignments\Index as MonitorAssignmentsIndex;
 use App\Livewire\Pages\ServiceProviders\Index as ServiceProvidersIndex;
 use App\Http\Controllers\IncidentPrintController;
 use App\Http\Controllers\IncidentBriefingController;
@@ -112,6 +113,7 @@ Route::middleware(['auth', 'active'])->get('/whoami', function () {
 Route::middleware(['auth', 'active', 'role:superadmin'])->group(function () {
     Route::get('/users', UsersIndex::class)->name('users.index');
     Route::get('/auteurs', \App\Livewire\Pages\Auteurs\Index::class)->name('auteurs.index');
+    Route::get('/assignations-moniteurs', MonitorAssignmentsIndex::class)->name('monitor-assignments.index');
 });
 
 
