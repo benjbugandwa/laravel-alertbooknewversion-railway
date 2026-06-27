@@ -7,6 +7,7 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Models\AuditLog;
 use App\Exceptions\BusinessRuleException;
+use App\Livewire\Components\IncidentReferencements;
 use App\Services\IncidentDuplicateService;
 use App\Services\IncidentQualityService;
 use App\Services\IncidentService;
@@ -298,8 +299,8 @@ class Show extends Component
             ], JSON_UNESCAPED_UNICODE),
         ]);
 
-        // Refresh modèle pour l’UI
-        $this->incident->refresh()->load(['violences:id,violence_name,categorie_name']);
+        $this->refreshIncident();
+        $this->dispatch('incidentStatusChanged')->to(IncidentReferencements::class);
 
         $this->dispatch('toast', message: "Incident validé avec succès.", type: 'success', duration: 5000);
     }

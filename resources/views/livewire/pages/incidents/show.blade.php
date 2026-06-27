@@ -259,7 +259,7 @@
                                             @endif
                                         </div>
                                         @if (!auth()->user()->hasRole('moniteur'))
-                                            <a href="{{ route('victimes.index', ['incident' => $incident->id, 'add_for_violence' => $v->id]) }}"
+                                            <a href="{{ route('victimes.index', ['incidentId' => $incident->id, 'add_for_violence' => $v->id]) }}"
                                                 class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-onu/20 text-[11px] font-semibold text-onu hover:bg-onu/5 bg-white transition shadow-sm">
                                                 👥 Saisir victimes
                                             </a>

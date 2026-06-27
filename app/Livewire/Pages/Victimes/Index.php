@@ -26,7 +26,7 @@ class Index extends Component
     public array $all_incidents = [];
     public array $violences_options = [];
 
-    public function mount(?string $incident = null)
+    public function mount(?string $incidentId = null): void
     {
         $user = Auth::user();
 
@@ -38,8 +38,10 @@ class Index extends Component
         $this->all_incidents = $incidentsQuery->get(['id', 'code_incident', 'localite', 'date_incident'])->toArray();
 
         // Resolve active incident
-        if ($incident) {
-            $this->incident = Incident::findOrFail($incident);
+        if ($incidentId) {
+            $this->incident = Incident::query()
+                ->when(!$user->hasRole('superadmin'), fn($query) => $query->where('code_province', $user->code_province))
+                ->findOrFail($incidentId);
         } else {
             // Default to most recent incident
             $first = Incident::orderByDesc('created_at');
@@ -56,23 +58,31 @@ class Index extends Component
 
         // Handle auto-open of modal from incident show page
         $addForViolence = request()->query('add_for_violence');
-        if ($addForViolence && $this->incident && $this->incidentHasViolences()) {
-            $this->openCreate();
-            $this->form->violence_id = (int)$addForViolence;
+        if ($addForViolence && $this->incident) {
+            $violenceId = filter_var($addForViolence, FILTER_VALIDATE_INT);
+
+            if ($violenceId && $this->incident->violences()->whereKey($violenceId)->exists()) {
+                $this->openCreate();
+                if ($this->showModal) {
+                    $this->form->violence_id = $violenceId;
+                }
+            } else {
+                $this->dispatch('toast', message: "Cette violence n'est pas rapportée pour cet incident.", type: 'warning', duration: 6000);
+            }
         }
     }
 
     public function updatedSelectedIncidentId($value)
     {
         if ($value) {
-            return redirect()->route('victimes.index', ['incident' => $value]);
+            return redirect()->route('victimes.index', ['incidentId' => $value]);
         }
         return redirect()->route('victimes.index');
     }
 
     public function canWrite()
     {
-        return auth()->user()->hasAnyRole(['superadmin', 'admin', 'superviseur']);
+        return auth()->user()?->hasAnyRole(['superadmin', 'admin', 'superviseur']) ?? false;
     }
 
     public function loadViolencesOptions()

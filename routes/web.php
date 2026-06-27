@@ -66,7 +66,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/mouvements', \App\Livewire\Pages\Mouvements\StandaloneIndex::class)->name('mouvements.standalone');
     Route::get('/mouvements/{mouvement}/print', [MovementPrintController::class, 'show'])->name('mouvements.print');
 
-    Route::get('/victimes/{incident?}', \App\Livewire\Pages\Victimes\Index::class)->name('victimes.index');
+    Route::get('/victimes/{incidentId?}', \App\Livewire\Pages\Victimes\Index::class)->name('victimes.index');
     Route::get('/reponses/{incident?}', \App\Livewire\Pages\Reponses\Index::class)->name('reponses.index');
     Route::get('/exports/victimes', [\App\Http\Controllers\VictimeExportController::class, 'export'])->name('exports.victimes');
 

@@ -7,7 +7,7 @@
                 <div class="text-xs text-gray-500">Orientation vers structures de prise en charge.</div>
             </div>
 
-            @if (in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur']))
+            @if (auth()->user()->hasAnyRole(['superadmin', 'admin', 'superviseur']))
                 <x-ui-button wire:click="openCreate">
                     + Nouveau référencement
                 </x-ui-button>
@@ -60,7 +60,7 @@
                                 </div>
                             </div>
 
-                            @if (in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur']))
+                            @if (auth()->user()->hasAnyRole(['superadmin', 'admin', 'superviseur']))
                                 <x-ui-button size="sm" variant="secondary"
                                     wire:click="openEdit('{{ $r->id }}')">
                                     Éditer
@@ -172,7 +172,7 @@
                                     class="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700 mt-2">
                                     <div class="font-medium">Aucun partenaire ne propose ce service pour le moment.
                                     </div>
-                                    @if (auth()->user()->user_role === 'superadmin')
+                                    @if (auth()->user()->hasRole('superadmin'))
                                         <div class="mt-2">
                                             <button type="button"
                                                 class="inline-flex items-center gap-2 text-sm font-medium text-gray-900 hover:underline"
@@ -225,7 +225,7 @@
                     </div>
                     <div class="flex justify-end gap-2">
                         <x-ui-button variant="secondary" wire:click="$set('showModal', false)">Annuler</x-ui-button>
-                        <x-ui-button wire:click="save" wire:loading.attr="disabled" :disabled="$this->incidentStatus !== 'Validé' || !in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur'])">
+                        <x-ui-button wire:click="save" wire:loading.attr="disabled" :disabled="$this->incidentStatus !== 'Validé' || !auth()->user()->hasAnyRole(['superadmin', 'admin', 'superviseur'])">
                             <span wire:loading.remove>{{ $editing ? 'Enregistrer' : 'Créer' }}</span>
                             <span wire:loading>Traitement…</span>
                         </x-ui-button>

@@ -92,24 +92,19 @@ class IncidentReferencements extends Component
         return ['En attente', 'En cours', 'Fournie', 'refusée'];
     }
 
-    private function userRole(): string
-    {
-        return Auth::user()->user_role ?? '';
-    }
-
     private function isSuperadmin(): bool
     {
-        return $this->userRole() === 'superadmin';
+        return Auth::user()?->hasRole('superadmin') ?? false;
     }
 
     private function isMoniteur(): bool
     {
-        return $this->userRole() === 'moniteur';
+        return Auth::user()?->hasRole('moniteur') ?? false;
     }
 
     private function canWrite(): bool
     {
-        return in_array($this->userRole(), ['superadmin', 'admin', 'superviseur'], true);
+        return Auth::user()?->hasAnyRole(['superadmin', 'admin', 'superviseur']) ?? false;
     }
 
     private function incident(): Incident
@@ -125,7 +120,7 @@ class IncidentReferencements extends Component
     private function sameProvinceAsUser(Incident $incident): bool
     {
         $u = Auth::user();
-        if (($u->user_role ?? '') === 'superadmin') return true;
+        if ($u->hasRole('superadmin')) return true;
         return ($u->code_province ?? null) && ($u->code_province === $incident->code_province);
     }
 
