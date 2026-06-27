@@ -40,8 +40,9 @@
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Type</label>
                 <select wire:model.live="f_type" class="w-full text-sm border-gray-300 rounded-lg">
                     <option value="">Tous les types</option>
-                    <option value="Fuite">Fuite</option>
-                    <option value="Retour">Retour</option>
+                    @foreach (\App\Livewire\Forms\MouvementForm::TYPE_OPTIONS as $type)
+                        <option value="{{ $type }}">{{ $type }}</option>
+                    @endforeach
                 </select>
             </div>
             <div>
@@ -180,8 +181,9 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1 text-xs font-bold uppercase">Type de mouvement *</label>
                                 <select wire:model="form.type_mouvement" class="w-full border-gray-300 rounded-lg text-sm shadow-sm">
                                     <option value="">Sélectionner...</option>
-                                    <option value="Fuite">Fuite (Déplacement)</option>
-                                    <option value="Retour">Retour</option>
+                                    @foreach (\App\Livewire\Forms\MouvementForm::TYPE_OPTIONS as $type)
+                                        <option value="{{ $type }}">{{ $type }}</option>
+                                    @endforeach
                                 </select>
                                 @error('form.type_mouvement') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                             </div>

@@ -73,8 +73,9 @@
                 <select wire:model.live="f_type"
                     class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
                     <option value="">Tous</option>
-                    <option value="Fuite">Fuite</option>
-                    <option value="Retour">Retour</option>
+                    @foreach (\App\Livewire\Forms\MouvementForm::TYPE_OPTIONS as $type)
+                        <option value="{{ $type }}">{{ $type }}</option>
+                    @endforeach
                 </select>
             </div>
 
@@ -178,8 +179,9 @@
                             <select wire:model.defer="form.type_mouvement"
                                 class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
                                 <option value="">-- Sélectionner --</option>
-                                <option value="Fuite">Fuite</option>
-                                <option value="Retour">Retour</option>
+                                @foreach (\App\Livewire\Forms\MouvementForm::TYPE_OPTIONS as $type)
+                                    <option value="{{ $type }}">{{ $type }}</option>
+                                @endforeach
                             </select>
                             @error('form.type_mouvement') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
                         </div>

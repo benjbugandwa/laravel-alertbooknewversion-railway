@@ -14,7 +14,15 @@ return new class extends Migration
         Schema::create('mouvements', function (Blueprint $table) {
             $table->id();            
             $table->date('date_mouvement');
-            $table->enum('type_mouvement',['Fuite','Retour']); //Fuite ou Retour
+            $table->enum('type_mouvement', [
+                'Fuite',
+                'Retour',
+                'Pendulaire',
+                'Individuel',
+                'De masse',
+                'Préventif',
+                'Autre',
+            ]);
             $table->string('source_info');
             $table->string('code_province_prov');
             $table->string('code_territoire_prov');

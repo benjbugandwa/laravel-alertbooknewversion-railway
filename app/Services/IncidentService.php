@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Mail;
 
 class IncidentService
 {
+    private const UNQUALIFIED_EVENT_CODE = 'EVENT21';
+
     /**
      * Crée un incident + audit + notification superviseurs.
      */
@@ -212,6 +214,10 @@ class IncidentService
             // Scope province
             if (!$actor->hasRole('superadmin') && $actor->code_province !== $incident->code_province) {
                 throw new BusinessRuleException("Accès refusé.");
+            }
+
+            if ($incident->code_evenement === self::UNQUALIFIED_EVENT_CODE) {
+                throw new BusinessRuleException("Cette alerte doit être qualifiée avant d'être validé");
             }
 
             // Si pas superadmin: doit être superviseur assigné

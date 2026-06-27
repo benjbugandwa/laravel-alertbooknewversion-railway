@@ -280,29 +280,19 @@ class Show extends Component
             return;
         }
 
-        $this->incident->statut_incident = 'Validé';
-        $this->incident->last_status_changed_at = now();
-        $this->incident->save();
+        try {
+            app(IncidentService::class)->validateIncident(
+                incident: $this->incident,
+                actor: Auth::user(),
+                ipAddress: request()->ip()
+            );
 
-        // Audit log
-        AuditLog::create([
-            //'id' => random_int(100000000, 999999999),
-            'user_id' => Auth::user()->id,
-            'user_action' => 'incident_validated',
-            'model_type' => 'incident',
-            'model_id' => $this->incident->id, // UUID
-            'ip_address' => request()->ip(),
-            'action_meta' => json_encode([
-                'code_incident' => $this->incident->code_incident,
-                'old_status' => 'En attente',
-                'new_status' => 'Validé',
-            ], JSON_UNESCAPED_UNICODE),
-        ]);
-
-        $this->refreshIncident();
-        $this->dispatch('incidentStatusChanged')->to(IncidentReferencements::class);
-
-        $this->dispatch('toast', message: "Incident validé avec succès.", type: 'success', duration: 5000);
+            $this->refreshIncident();
+            $this->dispatch('incidentStatusChanged')->to(IncidentReferencements::class);
+            $this->dispatch('toast', message: "Incident validé avec succès.", type: 'success', duration: 5000);
+        } catch (BusinessRuleException $e) {
+            $this->dispatch('toast', message: $e->getMessage(), type: 'warning', duration: 6500);
+        }
     }
 
     public function render()

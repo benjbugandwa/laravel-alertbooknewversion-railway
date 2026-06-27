@@ -5,9 +5,20 @@ namespace App\Livewire\Forms;
 use Livewire\Form;
 use Livewire\Attributes\Validate;
 use App\Models\Mouvement;
+use Illuminate\Validation\Rule;
 
 class MouvementForm extends Form
 {
+    public const TYPE_OPTIONS = [
+        'Fuite',
+        'Retour',
+        'Pendulaire',
+        'Individuel',
+        'De masse',
+        'Préventif',
+        'Autre',
+    ];
+
     public ?Mouvement $mouvement = null;
 
     public string $date_mouvement = '';
@@ -39,7 +50,7 @@ class MouvementForm extends Form
     {
         return [
             'date_mouvement' => ['required', 'date', 'before_or_equal:today'],
-            'type_mouvement' => ['required', 'in:Fuite,Retour'],
+            'type_mouvement' => ['required', Rule::in(self::TYPE_OPTIONS)],
             'source_info' => ['required', 'string', 'max:255'],
             
             'code_province_prov' => ['required', 'string'],
