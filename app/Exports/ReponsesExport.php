@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Models\Incident;
 use App\Models\Reponse;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\Exportable;
@@ -28,7 +29,10 @@ class ReponsesExport implements FromQuery, WithMapping, WithHeadings, WithStyles
 
     public function query()
     {
-        $query = Reponse::query()->with(['incident', 'creator']);
+        $query = Reponse::query()
+            ->whereHas('incident', fn ($incidentQuery) => $incidentQuery
+                ->where('statut_incident', Incident::STATUS_VALIDATED))
+            ->with(['incident', 'creator']);
 
         if ($this->incidentId) {
             $query->where('alerte_id', $this->incidentId);

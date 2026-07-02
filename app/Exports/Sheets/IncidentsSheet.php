@@ -57,7 +57,7 @@ class IncidentsSheet implements FromCollection, WithHeadings, WithStyles, Should
     {
         $q = Incident::query()
             ->whereBetween('date_incident', [$this->from, $this->to])
-            ->where('statut_incident', 'Validé') // Uniquement les incidents validés
+            ->where('statut_incident', Incident::STATUS_VALIDATED)
             ->with([
                 'province',
                 'zoneSante',

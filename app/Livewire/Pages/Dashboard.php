@@ -5,34 +5,50 @@ namespace App\Livewire\Pages;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Database\Query\Builder;
 use Livewire\Component;
 use App\Models\Incident;
+use App\Models\Province;
 use App\Services\IncidentSlaService;
 
 class Dashboard extends Component
 {
-    private const INCIDENT_CACHE_VERSION = 'no_archived_v1';
+    private const INCIDENT_CACHE_VERSION = 'validated_v1';
 
     public int $days = 30; // période pour l’évolution (30 derniers jours)
 
-    public $selectedProvince = '';
-    public $selectedTerritoire = '';
-    public $provinces = [];
-    public $territoires = [];
+    public string $selectedProvince = '';
+    public string $selectedTerritoire = '';
+    public array $provinces = [];
+    public array $territoires = [];
 
-    public function mount()
+    public function mount(): void
     {
         $user = Auth::user();
-        $isSuper = method_exists($user, 'isSuperAdmin') ? $user->isSuperAdmin() : ($user->user_role === 'superadmin');
-        if ($isSuper) {
-            $this->provinces = \App\Models\Province::orderBy('nom_province')->get()->toArray();
+        if ($user->hasRole('superadmin')) {
+            $this->provinces = Province::query()
+                ->orderBy('nom_province')
+                ->get(['code_province', 'nom_province'])
+                ->map(fn (Province $province) => [
+                    'code_province' => (string) $province->code_province,
+                    'nom_province' => (string) $province->nom_province,
+                ])
+                ->all();
         }
     }
 
-    public function updatedSelectedProvince($value)
+    public function updatedSelectedProvince(string $value): void
     {
         if ($value) {
-            $this->territoires = DB::table('territoires')->where('code_province', $value)->orderBy('nom_territoire')->get()->toArray();
+            $this->territoires = DB::table('territoires')
+                ->where('code_province', $value)
+                ->orderBy('nom_territoire')
+                ->get(['code_territoire', 'nom_territoire'])
+                ->map(fn ($territoire) => [
+                    'code_territoire' => (string) $territoire->code_territoire,
+                    'nom_territoire' => (string) $territoire->nom_territoire,
+                ])
+                ->all();
         } else {
             $this->territoires = [];
         }
@@ -51,13 +67,13 @@ class Dashboard extends Component
         $provinceName = null;
 
         // Scope: superadmin voit tout; sinon limité à la province du user
-        $isSuper = method_exists($user, 'isSuperAdmin') ? $user->isSuperAdmin() : ($user->user_role === 'superadmin');
+        $isSuper = $user->hasRole('superadmin');
         
         $provinceScope = $isSuper ? ($this->selectedProvince ?: null) : $user->code_province;
         $territoireScope = $isSuper ? ($this->selectedTerritoire ?: null) : null;
 
         if ($provinceScope) {
-            $provinceName = \App\Models\Province::where('code_province', $provinceScope)
+            $provinceName = Province::where('code_province', $provinceScope)
                 ->value('nom_province');
         }
 
@@ -86,10 +102,8 @@ class Dashboard extends Component
                     $join->on('incidents.code_province', '=', 'provinces.code_province')
                          ->where('provinces.is_active', 'YES');
                 })
-                ->selectRaw("COALESCE(provinces.nom_province, incidents.code_province, 'N/A') as label, COUNT(*)::int as total");
-            Incident::applyNotArchivedConstraint($q);
-            if ($provinceScope) $q->where('incidents.code_province', $provinceScope);
-            if ($territoireScope) $q->where('incidents.code_territoire', $territoireScope);
+                ->selectRaw("COALESCE(provinces.nom_province, incidents.code_province, 'N/A') as label, COUNT(*) as total");
+            self::applyValidatedIncidentScope($q, $provinceScope, $territoireScope);
             return $q->groupBy('label')->orderByDesc('total')->limit(15)->get();
         });
 
@@ -107,10 +121,8 @@ class Dashboard extends Component
         $cacheKeyStatus = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_stat_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
         $byStatus = Cache::remember($cacheKeyStatus, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
             $q = DB::table('incidents')
-                ->selectRaw("COALESCE(incidents.statut_incident, 'N/A') as label, COUNT(*)::int as total");
-            Incident::applyNotArchivedConstraint($q);
-            if ($provinceScope) $q->where('incidents.code_province', $provinceScope);
-            if ($territoireScope) $q->where('incidents.code_territoire', $territoireScope);
+                ->selectRaw("COALESCE(incidents.statut_incident, 'N/A') as label, COUNT(*) as total");
+            self::applyValidatedIncidentScope($q, $provinceScope, $territoireScope);
             return $q->groupBy('label')->orderByDesc('total')->get();
         });
 
@@ -119,23 +131,20 @@ class Dashboard extends Component
         $byEventType = Cache::remember($cacheKeyEventType, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
             $q = DB::table('incidents')
                 ->leftJoin('evenements', 'incidents.code_evenement', '=', 'evenements.code_evenement')
-                ->selectRaw("COALESCE(evenements.nom_evenement, incidents.code_evenement, 'N/A') as label, COUNT(*)::int as total");
-            Incident::applyNotArchivedConstraint($q);
-            if ($provinceScope) $q->where('incidents.code_province', $provinceScope);
-            if ($territoireScope) $q->where('incidents.code_territoire', $territoireScope);
+                ->selectRaw("COALESCE(evenements.nom_evenement, incidents.code_evenement, 'N/A') as label, COUNT(*) as total");
+            self::applyValidatedIncidentScope($q, $provinceScope, $territoireScope);
             return $q->groupBy('label')->orderByDesc('total')->limit(15)->get();
         });
 
         // --------- Evolution incidents (X jours) (Cache 15 min) ----------
-        $cacheKeyEvo = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_evo_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all') . "_days_" . $this->days;
-        $evolution = Cache::remember($cacheKeyEvo, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
+        $days = $this->days;
+        $cacheKeyEvo = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_evo_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all') . "_days_" . $days;
+        $evolution = Cache::remember($cacheKeyEvo, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
             $q = DB::table('incidents')
                 ->whereNotNull('incidents.date_incident')
-                ->where('incidents.date_incident', '>=', now()->subDays($this->days)->startOfDay())
-                ->selectRaw("to_char(incidents.date_incident::date, 'YYYY-MM-DD') as d, COUNT(*)::int as total");
-            Incident::applyNotArchivedConstraint($q);
-            if ($provinceScope) $q->where('incidents.code_province', $provinceScope);
-            if ($territoireScope) $q->where('incidents.code_territoire', $territoireScope);
+                ->where('incidents.date_incident', '>=', now()->subDays($days)->startOfDay())
+                ->selectRaw("DATE(incidents.date_incident) as d, COUNT(*) as total");
+            self::applyValidatedIncidentScope($q, $provinceScope, $territoireScope);
             return $q->groupBy('d')->orderBy('d')->get();
         });
 
@@ -144,11 +153,9 @@ class Dashboard extends Component
         $byChefferie = Cache::remember($cacheKeyChefferie, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
             $q = DB::table('incidents')
                 ->leftJoin('chefferies', 'incidents.code_chefferie', '=', 'chefferies.code_chefferie')
-                ->selectRaw("chefferies.nom_chefferie as label, COUNT(*)::int as total")
+                ->selectRaw("chefferies.nom_chefferie as label, COUNT(*) as total")
                 ->whereNotNull('chefferies.nom_chefferie');
-            Incident::applyNotArchivedConstraint($q);
-            if ($provinceScope) $q->where('incidents.code_province', $provinceScope);
-            if ($territoireScope) $q->where('incidents.code_territoire', $territoireScope);
+            self::applyValidatedIncidentScope($q, $provinceScope, $territoireScope);
             return $q->groupBy('label')->get();
         });
 
@@ -160,24 +167,24 @@ class Dashboard extends Component
             ],
             'byProvince' => [
                 'labels' => $byProvince->pluck('label')->values(),
-                'data' => $byProvince->pluck('total')->values(),
+                'data' => $byProvince->pluck('total')->map(fn ($total) => (int) $total)->values(),
                 'table' => $byProvinceTable,
                 'sum'   => $byProvinceTotal,
             ],
             'byStatus' => [
                 'labels' => $byStatus->pluck('label')->values(),
-                'data' => $byStatus->pluck('total')->values(),
+                'data' => $byStatus->pluck('total')->map(fn ($total) => (int) $total)->values(),
             ],
             'byEventType' => [
                 'labels' => $byEventType->pluck('label')->values(),
-                'data' => $byEventType->pluck('total')->values(),
+                'data' => $byEventType->pluck('total')->map(fn ($total) => (int) $total)->values(),
             ],
             'evolution' => [
                 'labels' => $evolution->pluck('d')->values(),
-                'data' => $evolution->pluck('total')->values(),
+                'data' => $evolution->pluck('total')->map(fn ($total) => (int) $total)->values(),
             ],
             'byChefferie' => $byChefferie->mapWithKeys(function ($item) {
-                return [strtolower(trim($item->label)) => $item->total];
+                return [strtolower(trim($item->label)) => (int) $item->total];
             })->toArray(),
             'scope' => [
                 'isSuper' => $isSuper,
@@ -192,5 +199,21 @@ class Dashboard extends Component
             'slaSummary' => $slaService->summary($provinceScope, $territoireScope),
             'slaOverdue' => $slaService->overdueIncidents($provinceScope, $territoireScope, 8),
         ]);
+    }
+
+    private static function applyValidatedIncidentScope(
+        Builder $query,
+        ?string $provinceScope,
+        ?string $territoireScope
+    ): void {
+        $query->where('incidents.statut_incident', Incident::STATUS_VALIDATED);
+
+        if ($provinceScope) {
+            $query->where('incidents.code_province', $provinceScope);
+        }
+
+        if ($territoireScope) {
+            $query->where('incidents.code_territoire', $territoireScope);
+        }
     }
 }

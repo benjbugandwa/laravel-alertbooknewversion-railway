@@ -2,6 +2,7 @@
 
 namespace App\Exports\Sheets;
 
+use App\Models\Incident;
 use App\Models\Referencement;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
@@ -39,6 +40,8 @@ class ReferencementsSheet implements FromCollection, WithHeadings, WithStyles, S
     {
         $q = Referencement::query()
             ->whereBetween('date_referencement', [$this->from, $this->to])
+            ->whereHas('incident', fn ($query) => $query
+                ->where('statut_incident', Incident::STATUS_VALIDATED))
             ->with(['incident.province', 'provider']);
 
         if ($this->province) {

@@ -202,13 +202,16 @@ class IncidentService
     public function validateIncident(Incident $incident, User $actor, string $ipAddress): Incident
     {
         return DB::transaction(function () use ($incident, $actor, $ipAddress) {
+            $incident = Incident::withArchived()
+                ->lockForUpdate()
+                ->findOrFail($incident->id);
 
             if ($this->isLocked($incident)) {
                 throw new BusinessRuleException("Incident clôturé/archivé : validation impossible.");
             }
 
-            if ($actor->hasRole('moniteur')) {
-                throw new BusinessRuleException("Un moniteur ne peut pas valider.");
+            if (!$actor->hasAnyRole(['superadmin', 'admin', 'superviseur'])) {
+                throw new BusinessRuleException("Vous n'êtes pas autorisé à valider cet incident.");
             }
 
             // Scope province
@@ -216,21 +219,7 @@ class IncidentService
                 throw new BusinessRuleException("Accès refusé.");
             }
 
-            if ($incident->code_evenement === self::UNQUALIFIED_EVENT_CODE) {
-                throw new BusinessRuleException("Cette alerte doit être qualifiée avant d'être validé");
-            }
-
-            // Si pas superadmin: doit être superviseur assigné
-            if (!$actor->hasRole('superadmin')) {
-                if (!$incident->assigned_to) {
-                    throw new BusinessRuleException("Veuillez d'abord assigner l'incident à un superviseur.");
-                }
-                if ((string)$incident->assigned_to !== (string)$actor->id) {
-                    throw new BusinessRuleException("Seul le superviseur assigné peut valider cet incident.");
-                }
-            }
-
-            if ($incident->statut_incident === 'Validé') {
+            if ($incident->statut_incident === Incident::STATUS_VALIDATED) {
                 return $incident; // déjà validé
             }
 
@@ -238,13 +227,49 @@ class IncidentService
                 throw new BusinessRuleException("Seul un incident en attente peut être validé.");
             }
 
+            if ($incident->code_evenement === self::UNQUALIFIED_EVENT_CODE) {
+                throw new BusinessRuleException("Cette alerte doit être qualifiée avant d'être validé");
+            }
+
             if ($incident->violences()->count() === 0) {
                 throw new BusinessRuleException("Impossible de valider : l'incident doit posséder au moins une violence documentée.");
             }
 
-            $incident->statut_incident = 'Validé';
+            $autoAssigned = false;
+
+            if (!$actor->hasRole('superadmin') && $actor->hasRole('superviseur')) {
+                if ($incident->assigned_to && (string) $incident->assigned_to !== (string) $actor->id) {
+                    throw new BusinessRuleException("Seul le superviseur assigné peut valider cet incident.");
+                }
+
+                if (!$incident->assigned_to) {
+                    $incident->assigned_to = $actor->id;
+                    $incident->assigned_by = $actor->id;
+                    $incident->assigned_at = now();
+                    $autoAssigned = true;
+                }
+            }
+
+            $incident->statut_incident = Incident::STATUS_VALIDATED;
             $incident->last_status_changed_at = now();
             $incident->save();
+
+            if ($autoAssigned) {
+                $this->audit(
+                    action: 'incident_assigned',
+                    modelType: 'incident',
+                    modelId: (string) $incident->id,
+                    ipAddress: $ipAddress,
+                    actor: $actor,
+                    meta: [
+                        'assigned_to' => (string) $actor->id,
+                        'assigned_by' => (string) $actor->id,
+                        'assigned_at' => $incident->assigned_at?->toDateTimeString(),
+                        'automatic' => true,
+                        'reason' => 'validation',
+                    ]
+                );
+            }
 
             $this->audit(
                 action: 'incident_validated',
@@ -255,6 +280,7 @@ class IncidentService
                 meta: [
                     'validated_by' => (string) $actor->id,
                     'validated_at' => now()->toDateTimeString(),
+                    'auto_assigned' => $autoAssigned,
                 ]
             );
 

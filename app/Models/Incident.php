@@ -15,6 +15,7 @@ class Incident extends Model
 {
     use HasUuids;
 
+    public const STATUS_VALIDATED = 'Validé';
     public const STATUS_ARCHIVED = 'Archivé';
     public const HIDE_ARCHIVED_SCOPE = 'hide_archived_incidents';
 

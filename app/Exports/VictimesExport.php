@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Models\Incident;
 use App\Models\Victime;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\Exportable;
@@ -16,15 +17,21 @@ class VictimesExport implements FromQuery, WithMapping, WithHeadings, WithStyles
     use Exportable;
 
     protected ?string $incidentId;
+    protected ?string $province;
 
-    public function __construct(?string $incidentId = null)
+    public function __construct(?string $incidentId = null, ?string $province = null)
     {
         $this->incidentId = $incidentId;
+        $this->province = $province;
     }
 
     public function query()
     {
         $query = Victime::query()
+            ->whereHas('incident', fn ($incidentQuery) => $incidentQuery
+                ->where('statut_incident', Incident::STATUS_VALIDATED)
+                ->when($this->province, fn ($provinceQuery) => $provinceQuery
+                    ->where('code_province', $this->province)))
             ->with(['incident.province', 'incident.territoire', 'incident.zoneSante', 'violence', 'creator']);
 
         if ($this->incidentId) {

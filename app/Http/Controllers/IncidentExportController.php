@@ -24,7 +24,7 @@ class IncidentExportController extends Controller
             'include_violences' => ['nullable', 'in:0,1'],
         ]);
 
-        if ($user->user_role !== 'superadmin') {
+        if (!$user->hasRole('superadmin')) {
             $data['province'] = $user->code_province;
         }
 
@@ -41,7 +41,7 @@ class IncidentExportController extends Controller
             from: $data['from'],
             to: $data['to'],
             province: $data['province'] ?? null,
-            includeSurvivantName: ($user->user_role === 'superadmin'),
+            includeSurvivantName: $user->hasRole('superadmin'),
             includeNotes: $includeNotes,
             includeReferencements: $includeRefs,
             includeViolences: $includeViolences,

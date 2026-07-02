@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Models\Incident;
 use App\Models\Mouvement;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\Exportable;
@@ -25,6 +26,11 @@ class MovementsExport implements FromQuery, WithMapping, WithHeadings, WithStyle
     public function query()
     {
         $query = Mouvement::query()
+            ->where(function ($movementQuery) {
+                $movementQuery->whereNull('incident_id')
+                    ->orWhereHas('incident', fn ($incidentQuery) => $incidentQuery
+                        ->where('statut_incident', Incident::STATUS_VALIDATED));
+            })
             ->with(['incident.evenement', 'territoireProv', 'territoireAccl', 'zoneSanteProv', 'zoneSanteAccl']);
 
         if (!empty($this->filters['start_date'])) {
