@@ -31,7 +31,10 @@ class Show extends Component
     public bool $showCloseModal = false;
     public string $closeComment = '';
 
-    protected $listeners = ['violences-updated' => 'refreshIncident'];
+    protected $listeners = [
+        'violences-updated' => 'refreshIncident',
+        'incident-updated' => 'refreshIncident',
+    ];
 
     public function refreshIncident(): void
     {

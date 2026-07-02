@@ -33,6 +33,9 @@ class IncidentService
                 $payload['code_province'] = $actor->code_province;
             }
 
+            $payload['statut_incident'] = 'En attente';
+            $payload = $this->normalizeNullableReferences($payload);
+
             $incident = new Incident();
             $incident->fill($payload);
 
@@ -105,6 +108,10 @@ class IncidentService
             if (!$actor->hasRole('superadmin')) {
                 $payload['code_province'] = $actor->code_province;
             }
+
+            // Les changements de statut passent exclusivement par les actions métier dédiées.
+            $payload['statut_incident'] = $incident->statut_incident;
+            $payload = $this->normalizeNullableReferences($payload);
 
             $incident->fill($payload);
             $incident->last_status_changed_at = now();
@@ -229,10 +236,6 @@ class IncidentService
 
             if ($incident->code_evenement === self::UNQUALIFIED_EVENT_CODE) {
                 throw new BusinessRuleException("Cette alerte doit être qualifiée avant d'être validé");
-            }
-
-            if ($incident->violences()->count() === 0) {
-                throw new BusinessRuleException("Impossible de valider : l'incident doit posséder au moins une violence documentée.");
             }
 
             $autoAssigned = false;
@@ -427,6 +430,25 @@ class IncidentService
     private function isLocked(Incident $incident): bool
     {
         return in_array($incident->statut_incident, ['Cloturée', 'Archivé'], true);
+    }
+
+    private function normalizeNullableReferences(array $payload): array
+    {
+        foreach ([
+            'survivant_id',
+            'code_territoire',
+            'code_zonesante',
+            'code_chefferie',
+            'code_groupement',
+            'code_airesante',
+            'code_evenement',
+        ] as $field) {
+            if (($payload[$field] ?? null) === '') {
+                $payload[$field] = null;
+            }
+        }
+
+        return $payload;
     }
 
     private function autoSupervisorFor(User $actor, ?string $codeProvince): ?User

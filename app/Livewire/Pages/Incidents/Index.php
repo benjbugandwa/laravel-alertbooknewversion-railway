@@ -49,7 +49,7 @@ class Index extends Component
     public bool $showConfirmModal = false;
     public string $confirmTitle = '';
     public string $confirmMessage = '';
-    public string $confirmAction = ''; // confirmValidate | confirmArchive
+    public string $confirmAction = ''; // confirmArchive
     public ?string $confirmIncidentId = null;
 
     // Upload
@@ -538,17 +538,8 @@ class Index extends Component
     }
 
     /* -------------------------------------------
-     | Confirm modals (Validate/Archive)
+     | Confirm modal (Archive)
      ------------------------------------------- */
-    public function askConfirmValidate(string $id): void
-    {
-        $this->confirmIncidentId = $id;
-        $this->confirmTitle = "Valider l'incident ?";
-        $this->confirmMessage = "Cette action va passer l'incident au statut « Validé ». Voulez-vous continuer ?";
-        $this->confirmAction = 'confirmValidate';
-        $this->showConfirmModal = true;
-    }
-
     public function askConfirmArchive(string $id): void
     {
         $this->confirmIncidentId = $id;
@@ -571,54 +562,9 @@ class Index extends Component
         $this->showConfirmModal = false;
         $this->confirmIncidentId = null;
 
-        if ($action === 'confirmValidate') {
-            $this->validateIncident($id);
-            return;
-        }
-
         if ($action === 'confirmArchive') {
             $this->archive($id);
             return;
-        }
-    }
-
-    /* -------------------------------------------
-     | Validate -> SERVICE
-     ------------------------------------------- */
-    public function validateIncident(string $id): void
-    {
-        $incident = Incident::findOrFail($id);
-
-        if ($incident->statut_incident !== 'En attente') {
-            $this->dispatch('toast', message: "Seul un incident en attente peut être validé.", type: 'warning', duration: 6000);
-            return;
-        }
-
-        if ($this->isMoniteur()) {
-            $this->dispatch('toast', message: "Un moniteur ne peut pas valider.", type: 'warning', duration: 6000);
-            return;
-        }
-
-        if (!$this->isSuperAdmin() && !$this->sameProvinceAsUser($incident)) {
-            $this->dispatch('toast', message: "Accès refusé.", type: 'error', duration: 6000);
-            return;
-        }
-
-        try {
-            $this->incidentService->validateIncident(
-                incident: $incident,
-                actor: $this->user(),
-                ipAddress: request()->ip()
-            );
-
-            //Audit log ici
-
-            $this->dispatch('toast', message: "Incident validé.", type: 'success', duration: 5000);
-        } catch (BusinessRuleException $e) {
-            $this->dispatch('toast', message: $e->getMessage(), type: 'warning', duration: 6500);
-        } catch (\Throwable $e) {
-            report($e);
-            $this->dispatch('toast', message: "Erreur interne. Veuillez réessayer.", type: 'error', duration: 6500);
         }
     }
 

@@ -17,7 +17,7 @@
         </div>
 
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center justify-end gap-2">
             <a href="{{ route('incidents.index') }}" class="text-sm text-gray-700 hover:underline">
                 ← Retour
             </a>
@@ -33,24 +33,26 @@
             </a>
 
             @if (auth()->user()->hasAnyRole(['superadmin', 'admin', 'superviseur']))
+                <x-ui-button variant="secondary"
+                    wire:click="$dispatch('openIncidentEdit', { incidentId: '{{ $incident->id }}' })"
+                    :disabled="$incident->statut_incident !== 'En attente'">
+                    Éditer
+                </x-ui-button>
+
                 <x-ui-button variant="secondary" wire:click="openCoordinatesModal">
                     GPS
                 </x-ui-button>
-            @endif
 
-            @if (auth()->user()->hasAnyRole(['superadmin', 'admin', 'superviseur']) &&
-                    !in_array($incident->statut_incident, ['Cloturée', 'Archivé']))
-                {{-- Valider (si pas déjà validé) --}}
-                @if ($incident->statut_incident !== 'Validé')
-                    <x-ui-button wire:click="askConfirmValidate">
-                        Valider
+                <x-ui-button wire:click="askConfirmValidate"
+                    :disabled="$incident->statut_incident !== 'En attente'">
+                    Valider
+                </x-ui-button>
+
+                @if (!in_array($incident->statut_incident, ['Cloturée', 'Archivé']))
+                    <x-ui-button variant="danger" wire:click="askConfirmArchive">
+                        Archiver
                     </x-ui-button>
                 @endif
-
-                {{-- Archiver (rouge) --}}
-                <x-ui-button variant="danger" wire:click="askConfirmArchive">
-                    Archiver
-                </x-ui-button>
 
                 @if ($incident->statut_incident === 'Validé')
                     <x-ui-button variant="danger" wire:click="openCloseModal">
@@ -285,6 +287,8 @@
 
         <livewire:components.incident-violences-modal />
     @endif
+
+    <livewire:components.incident-edit-modal />
 
     @if ($showCoordinatesModal)
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data

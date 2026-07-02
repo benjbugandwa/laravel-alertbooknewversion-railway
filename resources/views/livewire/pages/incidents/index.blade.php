@@ -238,15 +238,6 @@
                                         Assigner
                                     </button>
 
-                                    {{-- Valider --}}
-                                    <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-                                        wire:click="askConfirmValidate('{{ $inc->id }}')"
-                                        @disabled($isMoniteur ||
-                                                in_array($inc->statut_incident, ['Cloturée', 'Archivé']) ||
-                                                $inc->statut_incident === 'Validé')>
-                                        Valider
-                                    </button>
-
                                     <div class="h-px bg-gray-100"></div>
 
                                     {{-- Archiver --}}
@@ -334,16 +325,13 @@
                         <div class="space-y-1">
                             <label class="text-sm font-medium text-gray-700">Statut *</label>
                             <select wire:model.defer="form.statut_incident"
-                                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
-                                @disabled(!$editing)>
+                                class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-gray-100" disabled>
                                 <option value="En attente">En attente</option>
                                 <option value="Validé">Validé</option>
                                 <option value="Cloturée">Cloturée</option>
                                 <option value="Archivé">Archivé</option>
                             </select>
-                            @if(!$editing)
-                                <div class="text-[10px] text-gray-500 italic">Le statut par défaut est "En attente" lors de la création.</div>
-                            @endif
+                            <div class="text-[10px] text-gray-500 italic">Le statut se modifie uniquement via les actions dédiées.</div>
                             @error('form.statut_incident')
                                 <div class="text-sm text-red-600">{{ $message }}</div>
                             @enderror
