@@ -20,6 +20,8 @@ class NewAccountPendingActivationNotification extends Notification
 
     public function toMail($notifiable): MailMessage
     {
+        $this->newUser->loadMissing(['organisation', 'province']);
+
         return (new MailMessage)
             ->subject('Nouveau compte en attente d’activation — AlertBook')
             ->view('emails.new-account-pending-activation-html', [

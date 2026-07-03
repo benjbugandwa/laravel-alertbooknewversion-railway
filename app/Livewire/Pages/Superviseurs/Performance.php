@@ -34,15 +34,14 @@ class Performance extends Component
 
     private function authorizeAccess(): void
     {
-        $role = Auth::user()->user_role ?? '';
-        if (!in_array($role, ['admin', 'superadmin'], true)) {
+        if (!Auth::user()->hasAnyRole(['admin', 'superadmin'])) {
             abort(403);
         }
     }
 
     private function isSuperAdmin(): bool
     {
-        return (Auth::user()->user_role === 'superadmin');
+        return Auth::user()->hasRole('superadmin');
     }
 
     private function adminProvince(): ?string
@@ -54,8 +53,9 @@ class Performance extends Component
     public function superviseurs(): array
     {
         $q = User::query()
+            ->with('province')
             ->where('is_active', true)
-            ->where('user_role', 'superviseur')
+            ->whereHas('roles', fn($roleQuery) => $roleQuery->where('slug', 'superviseur'))
             ->orderBy('name');
 
         if (!$this->isSuperAdmin()) {
@@ -67,7 +67,7 @@ class Performance extends Component
                 'id' => $u->id,
                 'name' => $u->name,
                 'email' => $u->email,
-                'code_province' => $u->code_province,
+                'nom_province' => $u->province?->nom_province,
             ])->toArray();
     }
 

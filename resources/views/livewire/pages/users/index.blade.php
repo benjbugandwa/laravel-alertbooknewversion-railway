@@ -72,8 +72,7 @@
                     class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
                     <option value="">Toutes</option>
                     @foreach ($provinces as $p)
-                        <option value="{{ $p->code_province }}">{{ $p->nom_province }} ({{ $p->code_province }})
-                        </option>
+                        <option value="{{ $p->code_province }}">{{ $p->nom_province }}</option>
                     @endforeach
                 </select>
             </div>
@@ -92,11 +91,7 @@
                 <td class="px-4 py-3">{{ $u->organisation->org_name ?? '-' }}</td>
                 <td class="px-4 py-3">{{ $u->roles->first()->name ?? '-' }}</td>
                 <td class="px-4 py-3">
-                    @if ($u->code_province)
-                        {{ $u->code_province }}
-                    @else
-                        <span class="text-gray-500">-</span>
-                    @endif
+                    {{ $u->province?->nom_province ?? '-' }}
                 </td>
                 <td class="px-4 py-3">
                     @if ($u->is_active)

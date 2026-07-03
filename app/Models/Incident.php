@@ -104,7 +104,8 @@ class Incident extends Model
 
     public function province(): BelongsTo
     {
-        return $this->belongsTo(Province::class, 'code_province', 'code_province');
+        return $this->belongsTo(Province::class, 'code_province', 'code_province')
+            ->withoutGlobalScope('active');
     }
 
     public function territoire(): BelongsTo

@@ -81,7 +81,7 @@
                                     class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
                                     @disabled(!auth()->user()->hasRole('superadmin'))>
                                     @if (!auth()->user()->hasRole('superadmin'))
-                                        <option value="{{ auth()->user()->code_province }}">{{ auth()->user()->code_province }}</option>
+                                        <option value="{{ auth()->user()->code_province }}">{{ auth()->user()->province?->nom_province ?? '-' }}</option>
                                     @else
                                         <option value="">-- Sélectionner --</option>
                                         @foreach ($this->provinces as $province)

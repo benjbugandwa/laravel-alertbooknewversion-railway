@@ -69,6 +69,12 @@ class User extends Authenticatable
         return $this->belongsTo(Organisation::class, 'org_id');
     }
 
+    public function province(): BelongsTo
+    {
+        return $this->belongsTo(Province::class, 'code_province', 'code_province')
+            ->withoutGlobalScope('active');
+    }
+
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'roles_users', 'user_id', 'role_id')

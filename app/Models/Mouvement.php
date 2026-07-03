@@ -57,12 +57,14 @@ class Mouvement extends Model
 
     public function provinceProv(): BelongsTo
     {
-        return $this->belongsTo(Province::class, 'code_province_prov', 'code_province');
+        return $this->belongsTo(Province::class, 'code_province_prov', 'code_province')
+            ->withoutGlobalScope('active');
     }
 
     public function provinceAccl(): BelongsTo
     {
-        return $this->belongsTo(Province::class, 'code_province_accl', 'code_province');
+        return $this->belongsTo(Province::class, 'code_province_accl', 'code_province')
+            ->withoutGlobalScope('active');
     }
 
     public function zoneSanteProv(): BelongsTo

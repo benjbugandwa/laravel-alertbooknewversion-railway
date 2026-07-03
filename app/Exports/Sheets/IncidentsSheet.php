@@ -84,7 +84,7 @@ class IncidentsSheet implements FromCollection, WithHeadings, WithStyles, Should
             $baseRow = [
                 $inc->code_incident,
                 optional($inc->date_incident)->format('Y-m-d'),
-                $inc->province->nom_province ?? $inc->code_province,
+                $inc->province?->nom_province ?? '-',
                 $inc->chefferie->nom_chefferie ?? $inc->code_chefferie,
                 $inc->groupement->nom_groupement ?? $inc->code_groupement,
                 $inc->zoneSante->nom_zonesante ?? $inc->code_zonesante,

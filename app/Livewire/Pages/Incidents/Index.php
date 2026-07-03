@@ -607,10 +607,7 @@ class Index extends Component
     public function shareWhatsapp(string $id): void
     {
         $incident = Incident::query()
-            ->leftJoin('provinces', function($join) {
-                $join->on('incidents.code_province', '=', 'provinces.code_province')
-                     ->where('provinces.is_active', 'YES');
-            })
+            ->leftJoin('provinces', 'incidents.code_province', '=', 'provinces.code_province')
             ->leftJoin('territoires', 'incidents.code_territoire', '=', 'territoires.code_territoire')
             ->leftJoin('zonesantes', 'incidents.code_zonesante', '=', 'zonesantes.code_zonesante')
             ->where('incidents.id', $id)
@@ -652,16 +649,13 @@ class Index extends Component
         $user = $this->user();
 
         $query = Incident::query()
-            ->leftJoin('provinces', function($join) {
-                $join->on('incidents.code_province', '=', 'provinces.code_province')
-                     ->where('provinces.is_active', 'YES');
-            })
+            ->leftJoin('provinces', 'incidents.code_province', '=', 'provinces.code_province')
             ->leftJoin('zonesantes', 'incidents.code_zonesante', '=', 'zonesantes.code_zonesante')
             ->leftJoin('evenements', 'incidents.code_evenement', '=', 'evenements.code_evenement')
             ->with(['violences:id,violence_name'])
             ->select([
                 'incidents.*',
-                DB::raw("COALESCE(provinces.nom_province, incidents.code_province, 'N/A') as province_name"),
+                DB::raw("COALESCE(provinces.nom_province, 'N/A') as province_name"),
                 DB::raw("COALESCE(zonesantes.nom_zonesante, incidents.code_zonesante, 'N/A') as zone_name"),
                 DB::raw("COALESCE(evenements.nom_evenement, incidents.code_evenement, 'N/A') as evenement_name"),
             ]);

@@ -23,7 +23,10 @@
                 <div class="font-semibold">{{ $u->name }}</div>
                 <div class="text-sm text-gray-600">{{ $u->email }}</div>
                 <div class="text-xs text-gray-500 mt-1">
-                    Province: {{ $u->code_province ?? '-' }}
+                    Province : {{ $u->province?->nom_province ?? '-' }}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">
+                    Rôle : {{ $u->roles->pluck('name')->filter()->join(', ') ?: '-' }}
                 </div>
             </div>
         </div>

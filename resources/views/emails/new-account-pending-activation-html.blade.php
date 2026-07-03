@@ -48,7 +48,7 @@
                 </div>
                 <div class="info-row">
                     <div class="info-label">Province :</div>
-                    <div class="info-value">{{ $newUser->code_province ?? 'Non spécifiée' }}</div>
+                    <div class="info-value">{{ $newUser->province?->nom_province ?? 'Non spécifiée' }}</div>
                 </div>
                 <div class="info-row">
                     <div class="info-label">Statut :</div>

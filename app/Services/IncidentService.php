@@ -566,7 +566,7 @@ class IncidentService
             return;
         }
 
-        $provinceName = DB::table('provinces')->where('code_province', $incident->code_province)->where('is_active', 'YES')->value('nom_province') ?? '-';
+        $provinceName = DB::table('provinces')->where('code_province', $incident->code_province)->value('nom_province') ?? '-';
         $territoireName = $incident->code_territoire
             ? (DB::table('territoires')->where('code_territoire', $incident->code_territoire)->value('nom_territoire') ?? '-')
             : '-';
@@ -593,7 +593,7 @@ class IncidentService
     {
         if (!$superviseur->email) return;
 
-        $provinceName = DB::table('provinces')->where('code_province', $incident->code_province)->where('is_active', 'YES')->value('nom_province') ?? '-';
+        $provinceName = DB::table('provinces')->where('code_province', $incident->code_province)->value('nom_province') ?? '-';
         $territoireName = $incident->code_territoire
             ? (DB::table('territoires')->where('code_territoire', $incident->code_territoire)->value('nom_territoire') ?? '-')
             : '-';

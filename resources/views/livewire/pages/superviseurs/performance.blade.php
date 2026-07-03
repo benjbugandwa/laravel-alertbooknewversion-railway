@@ -18,8 +18,8 @@
                     @foreach ($this->superviseurs as $s)
                         <option value="{{ $s['id'] }}">
                             {{ $s['name'] }} — {{ $s['email'] }}
-                            @if (auth()->user()->user_role === 'superadmin')
-                                ({{ $s['code_province'] }})
+                            @if (auth()->user()->hasRole('superadmin'))
+                                ({{ $s['nom_province'] ?? '-' }})
                             @endif
                         </option>
                     @endforeach

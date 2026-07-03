@@ -96,7 +96,7 @@
                         <div class="font-medium">{{ $assignment->supervisor?->name ?? '-' }}</div>
                         <div class="text-xs text-gray-500">{{ $assignment->supervisor?->email }}</div>
                     </td>
-                    <td class="px-4 py-3">{{ $assignment->province?->nom_province ?? $assignment->code_province }}</td>
+                    <td class="px-4 py-3">{{ $assignment->province?->nom_province ?? '-' }}</td>
                     <td class="px-4 py-3 text-sm text-gray-500">{{ optional($assignment->updated_at)->format('Y-m-d H:i') }}</td>
                     <td class="px-4 py-3">
                         <x-ui-button size="sm" variant="danger" wire:click="removeAssignment({{ $assignment->id }})" wire:confirm="Retirer cette affectation ?">

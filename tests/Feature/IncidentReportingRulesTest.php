@@ -61,6 +61,7 @@ class IncidentReportingRulesTest extends TestCase
             ->assertViewHas('chart', function (array $chart): bool {
                 return $chart['byStatus']['labels']->all() === [Incident::STATUS_VALIDATED]
                     && $chart['byStatus']['data']->all() === [1]
+                    && $chart['byProvince']['labels']->all() === ['Province test']
                     && $chart['byProvince']['sum'] === 1
                     && $chart['evolution']['data']->sum() === 1;
             });
@@ -83,6 +84,7 @@ class IncidentReportingRulesTest extends TestCase
 
         $this->assertCount(1, $rows);
         $this->assertSame('ALT-VALIDATED', $rows->first()[0]);
+        $this->assertSame('Province test', $rows->first()[2]);
     }
 
     public function test_unassigned_incident_without_violence_is_assigned_to_supervisor_when_validated(): void

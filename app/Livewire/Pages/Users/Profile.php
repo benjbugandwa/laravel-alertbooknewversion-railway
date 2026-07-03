@@ -20,6 +20,7 @@ class Profile extends Component
     public function mount(): void
     {
         $u = Auth::user();
+        $u->loadMissing(['province', 'roles']);
 
         $this->name = (string) $u->name;
         $this->email = (string) $u->email;

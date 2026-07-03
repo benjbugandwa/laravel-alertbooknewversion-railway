@@ -363,7 +363,7 @@
                                     @disabled(!$isSuperAdmin)>
                                     @if (!$isSuperAdmin)
                                         <option value="{{ auth()->user()->code_province }}">
-                                            {{ auth()->user()->code_province }}</option>
+                                            {{ auth()->user()->province?->nom_province ?? '-' }}</option>
                                     @else
                                         <option value="">-- Sélectionner --</option>
                                         @foreach ($this->provinces as $p)

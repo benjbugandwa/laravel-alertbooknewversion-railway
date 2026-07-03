@@ -71,7 +71,7 @@
                                 <label class="text-sm font-medium text-gray-700">Province</label>
                                 <div
                                     class="h-10 flex items-center px-3 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-700">
-                                    {{ auth()->user()->code_province }}
+                                    {{ auth()->user()->province?->nom_province ?? '-' }}
                                 </div>
                             </div>
                         @endif

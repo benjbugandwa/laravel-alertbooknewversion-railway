@@ -201,7 +201,7 @@ class Index extends Component
 
     public function render()
     {
-        $query = User::query()->with(['roles', 'organisation']);
+        $query = User::query()->with(['roles', 'organisation', 'province']);
 
         // Tabs
         if ($this->tab === 'pending') {

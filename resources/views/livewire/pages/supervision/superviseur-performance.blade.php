@@ -11,7 +11,7 @@
     <x-ui-card>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             {{-- Province (superadmin uniquement) --}}
-            @if (auth()->user()->user_role === 'superadmin')
+            @if (auth()->user()->hasRole('superadmin'))
                 <div class="space-y-1">
                     <label class="text-sm font-medium text-gray-700">Province</label>
                     <select wire:model.live="province"
@@ -37,7 +37,7 @@
                 </select>
                 @if ($selectedSuperviseur)
                     <div class="text-xs text-gray-500 mt-1">
-                        Province: <span class="font-medium">{{ $selectedSuperviseur['code_province'] ?? '-' }}</span>
+                        Province: <span class="font-medium">{{ $selectedSuperviseur['nom_province'] ?? '-' }}</span>
                     </div>
                 @endif
             </div>

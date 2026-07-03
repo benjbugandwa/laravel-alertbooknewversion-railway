@@ -73,7 +73,8 @@ class Dashboard extends Component
         $territoireScope = $isSuper ? ($this->selectedTerritoire ?: null) : null;
 
         if ($provinceScope) {
-            $provinceName = Province::where('code_province', $provinceScope)
+            $provinceName = Province::withoutGlobalScope('active')
+                ->where('code_province', $provinceScope)
                 ->value('nom_province');
         }
 
@@ -98,11 +99,8 @@ class Dashboard extends Component
         $cacheKeyProvince = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_prov_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
         $byProvince = Cache::remember($cacheKeyProvince, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
             $q = DB::table('incidents')
-                ->leftJoin('provinces', function($join) {
-                    $join->on('incidents.code_province', '=', 'provinces.code_province')
-                         ->where('provinces.is_active', 'YES');
-                })
-                ->selectRaw("COALESCE(provinces.nom_province, incidents.code_province, 'N/A') as label, COUNT(*) as total");
+                ->leftJoin('provinces', 'incidents.code_province', '=', 'provinces.code_province')
+                ->selectRaw("COALESCE(provinces.nom_province, 'N/A') as label, COUNT(*) as total");
             self::applyValidatedIncidentScope($q, $provinceScope, $territoireScope);
             return $q->groupBy('label')->orderByDesc('total')->limit(15)->get();
         });

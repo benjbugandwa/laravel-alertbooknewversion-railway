@@ -3,6 +3,7 @@
 namespace App\Livewire\Pages\Supervision;
 
 use App\Models\Incident;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
@@ -25,7 +26,7 @@ class SuperviseurPerformance extends Component
 
     private function isSuperAdmin(): bool
     {
-        return Auth::user()?->user_role === 'superadmin';
+        return Auth::user()?->hasRole('superadmin') ?? false;
     }
 
     public function updatedProvince(): void
@@ -47,9 +48,10 @@ class SuperviseurPerformance extends Component
     #[Computed]
     public function superviseurs(): array
     {
-        $q = DB::table('users')
+        $q = User::query()
+            ->with('province')
             ->where('is_active', true)
-            ->where('user_role', 'superviseur');
+            ->whereHas('roles', fn($roleQuery) => $roleQuery->where('slug', 'superviseur'));
 
         // Admin -> seulement sa province ; Superadmin -> province filtrable si choisie
         if (!$this->isSuperAdmin()) {
@@ -68,7 +70,7 @@ class SuperviseurPerformance extends Component
                     'id' => (string) $u->id,
                     'name' => $u->name,
                     'email' => $u->email,
-                    'code_province' => $u->code_province,
+                    'nom_province' => $u->province?->nom_province,
                 ];
             })
             ->toArray();

@@ -19,7 +19,7 @@
                     Vue globale (toutes provinces).
                 @else
                     Vue province :
-                    <b>{{ $chart['scope']['nom_province'] ?? ($chart['scope']['code_province'] ?? '-') }}</b>
+                    <b>{{ $chart['scope']['nom_province'] ?? '-' }}</b>
                 @endif
             </div>
         </div>
