@@ -7,7 +7,9 @@ use App\Models\Province;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\AccountActivatedNotification;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -44,7 +46,7 @@ class Index extends Component
     public function mount(): void
     {
         // Page réservée aux superadmins
-        if (!Auth::user()?->isSuperAdmin()) {
+        if (!Auth::user()?->hasRole('superadmin')) {
             abort(403);
         }
     }
@@ -85,7 +87,7 @@ class Index extends Component
 
     public function assignAndActivate(): void
     {
-        if (!Auth::user()?->isSuperAdmin()) abort(403);
+        if (!Auth::user()?->hasRole('superadmin')) abort(403);
 
         $this->validate([
             'role_id' => ['required', 'exists:roles,id'],
@@ -101,9 +103,6 @@ class Index extends Component
         $wasInactive = ($u->is_active === false);
 
         $u->is_active = true;
-
-        // Optionnel: garder user_role en synchro
-        $u->user_role = $role->slug;
 
         $u->save();
 
@@ -122,7 +121,7 @@ class Index extends Component
 
     public function toggleActive(int $userId): void
     {
-        if (!Auth::user()?->isSuperAdmin()) abort(403);
+        if (!Auth::user()?->hasRole('superadmin')) abort(403);
 
         $u = User::findOrFail($userId);
 
@@ -152,23 +151,45 @@ class Index extends Component
 
     public function createOrganisation(): void
     {
-        if (!Auth::user()?->isSuperAdmin()) abort(403);
+        if (!Auth::user()?->hasRole('superadmin')) abort(403);
 
         $this->validate([
             'org_name' => ['required', 'string', 'max:150'],
-            'org_sigle' => ['nullable', 'string', 'max:100'],
+            'org_sigle' => ['nullable', 'string', 'max:100', Rule::unique('organisations', 'org_sigle')],
             'org_secteur_activite' => ['nullable', 'string', 'max:50'],
             'org_categorie' => ['nullable', 'string', 'max:50'],
         ], [
             'org_name.required' => "Le nom de l'organisation est obligatoire.",
         ]);
 
-        $org = Organisation::create([
-            'org_sigle' => $this->org_sigle ?: null,
-            'org_name' => $this->org_name,
-            'org_secteur_activite' => $this->org_secteur_activite ?: null,
-            'org_categorie' => $this->org_categorie ?: null,
-        ]);
+        $sigle = trim($this->org_sigle);
+
+        try {
+            $org = Organisation::create([
+                'org_sigle' => $sigle !== '' ? mb_strtoupper($sigle) : null,
+                'org_name' => trim($this->org_name),
+                'org_secteur_activite' => $this->org_secteur_activite !== '' ? [$this->org_secteur_activite] : [],
+                'org_categorie' => $this->org_categorie ?: null,
+            ]);
+        } catch (QueryException $exception) {
+            report($exception);
+
+            if (in_array((string) $exception->getCode(), ['23000', '23505'], true)
+                && str_contains(strtolower($exception->getMessage()), 'org_sigle')) {
+                $this->addError('org_sigle', 'Ce sigle est déjà utilisé par une autre organisation.');
+
+                return;
+            }
+
+            $this->dispatch('toast', message: "Impossible de créer l'organisation. Veuillez réessayer.", type: 'error', duration: 6500);
+
+            return;
+        } catch (\Throwable $exception) {
+            report($exception);
+            $this->dispatch('toast', message: "Impossible de créer l'organisation. Veuillez réessayer.", type: 'error', duration: 6500);
+
+            return;
+        }
 
         // Pré-sélection dans le modal d’assignation
         $this->org_id = $org->id;

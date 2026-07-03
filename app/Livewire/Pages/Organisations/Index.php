@@ -4,6 +4,7 @@ namespace App\Livewire\Pages\Organisations;
 
 use App\Models\Organisation;
 use App\Models\AuditLog;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -157,26 +158,51 @@ class Index extends Component
             'org_categorie' => $this->form['org_categorie'] ?: null,
         ];
 
-        if ($this->editing && $this->editingId) {
-            $org = Organisation::findOrFail($this->editingId);
-            $org->update($payload);
+        try {
+            if ($this->editing && $this->editingId) {
+                $org = Organisation::findOrFail($this->editingId);
+                $org->update($payload);
 
-            /* $this->audit('organisation_updated', 'organisation', (string)$org->id, [
-                'org_name' => $org->org_name,
-            ]);*/
+                /* $this->audit('organisation_updated', 'organisation', (string)$org->id, [
+                    'org_name' => $org->org_name,
+                ]);*/
 
-            $this->dispatch('toast', message: "Organisation mise à jour.", type: 'success', duration: 5000);
-        } else {
-            $org = Organisation::create($payload);
+                $this->dispatch('toast', message: "Organisation mise à jour.", type: 'success', duration: 5000);
+            } else {
+                $org = Organisation::create($payload);
 
-            /* $this->audit('organisation_created', 'organisation', (string)$org->id, [
-                'org_name' => $org->org_name,
-            ]);*/
+                /* $this->audit('organisation_created', 'organisation', (string)$org->id, [
+                    'org_name' => $org->org_name,
+                ]);*/
 
-            $this->dispatch('toast', message: "Organisation créée.", type: 'success', duration: 5000);
+                $this->dispatch('toast', message: "Organisation créée.", type: 'success', duration: 5000);
+            }
+        } catch (QueryException $exception) {
+            report($exception);
+
+            if ($this->isSigleUniqueConstraintViolation($exception)) {
+                $this->addError('form.org_sigle', 'Ce sigle est déjà utilisé par une autre organisation.');
+
+                return;
+            }
+
+            $this->dispatch('toast', message: "Impossible d'enregistrer l'organisation. Veuillez réessayer.", type: 'error', duration: 6500);
+
+            return;
+        } catch (\Throwable $exception) {
+            report($exception);
+            $this->dispatch('toast', message: "Impossible d'enregistrer l'organisation. Veuillez réessayer.", type: 'error', duration: 6500);
+
+            return;
         }
 
         $this->showModal = false;
+    }
+
+    private function isSigleUniqueConstraintViolation(QueryException $exception): bool
+    {
+        return in_array((string) $exception->getCode(), ['23000', '23505'], true)
+            && str_contains(strtolower($exception->getMessage()), 'org_sigle');
     }
 
     public function toggleActive(int $id): void
