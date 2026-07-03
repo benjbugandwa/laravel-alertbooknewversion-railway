@@ -35,7 +35,8 @@
     <x-ui-card>
         <form wire:submit="save" class="space-y-4">
             <x-ui-input label="Nom complet" wire:model.defer="name" name="name" />
-            <x-ui-input label="Email" type="email" wire:model.defer="email" name="email" />
+            <x-ui-input label="Email" type="email" :value="$u->email" name="email" readonly aria-readonly="true"
+                class="bg-gray-50 text-gray-500 cursor-not-allowed" />
             <x-ui-input label="Téléphone" wire:model.defer="phone_number" name="phone_number" placeholder="+243..." />
             <x-ui-input label="Fonction" wire:model.defer="job_title" name="job_title" placeholder="ex: Data Manager" />
 

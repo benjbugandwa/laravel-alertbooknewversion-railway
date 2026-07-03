@@ -28,6 +28,21 @@ class UserProvinceDisplayTest extends TestCase
             ->assertDontSee('Province : CD74');
     }
 
+    public function test_profile_email_is_read_only_and_is_not_changed_when_profile_is_saved(): void
+    {
+        $user = $this->userInProvinceWithRole();
+        $originalEmail = $user->email;
+
+        Livewire::actingAs($user)
+            ->test(Profile::class)
+            ->assertSeeHtml('readonly')
+            ->set('name', 'Nom mis à jour')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame($originalEmail, $user->fresh()->email);
+    }
+
     public function test_pending_account_email_displays_province_name_instead_of_province_code(): void
     {
         $newUser = $this->userInProvinceWithRole();

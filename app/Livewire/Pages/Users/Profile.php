@@ -3,7 +3,6 @@
 namespace App\Livewire\Pages\Users;
 
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -12,7 +11,6 @@ class Profile extends Component
     use WithFileUploads;
 
     public string $name = '';
-    public string $email = '';
     public ?string $phone_number = null; // ✅ SQL
     public ?string $job_title = null;    // ✅ ajout
     public $avatar; // TemporaryUploadedFile|null
@@ -23,7 +21,6 @@ class Profile extends Component
         $u->loadMissing(['province', 'roles']);
 
         $this->name = (string) $u->name;
-        $this->email = (string) $u->email;
         $this->phone_number = $u->phone_number; // ✅ SQL
         $this->job_title = $u->job_title;       // ✅ ajout
     }
@@ -34,7 +31,6 @@ class Profile extends Component
 
         $this->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($u->id)],
             'phone_number' => ['nullable', 'string', 'max:30'], // ✅ SQL
             'job_title' => ['nullable', 'string', 'max:120'],   // ✅ ajout
             'avatar' => ['nullable', 'image', 'max:2048'],      // 2MB
@@ -44,7 +40,6 @@ class Profile extends Component
         ]);
 
         $u->name = $this->name;
-        $u->email = $this->email;
         $u->phone_number = $this->phone_number; // ✅ SQL
         $u->job_title = $this->job_title;       // ✅ ajout
 
