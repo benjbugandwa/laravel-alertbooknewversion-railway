@@ -35,7 +35,7 @@ class IncidentReportingRulesTest extends TestCase
         ]);
     }
 
-    public function test_dashboard_filters_work_and_charts_only_include_validated_incidents(): void
+    public function test_dashboard_filters_work_and_status_chart_uses_all_incidents_as_denominator(): void
     {
         $superadmin = $this->userWithRole('superadmin');
 
@@ -59,8 +59,11 @@ class IncidentReportingRulesTest extends TestCase
                 'nom_territoire' => 'Territoire test',
             ]])
             ->assertViewHas('chart', function (array $chart): bool {
-                return $chart['byStatus']['labels']->all() === [Incident::STATUS_VALIDATED]
-                    && $chart['byStatus']['data']->all() === [1]
+                return $chart['byStatus']['labels']->all() === ['Validées', 'Non validées']
+                    && $chart['byStatus']['data']->all() === [1, 2]
+                    && $chart['byStatus']['validated'] === 1
+                    && $chart['byStatus']['total'] === 3
+                    && $chart['byStatus']['validatedPercentage'] === 33.3
                     && $chart['byProvince']['labels']->all() === ['Province test']
                     && $chart['byProvince']['sum'] === 1
                     && $chart['evolution']['data']->sum() === 1;

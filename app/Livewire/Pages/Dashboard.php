@@ -115,14 +115,26 @@ class Dashboard extends Component
             ];
         })->values();
 
-        // --------- Incidents par statut (Cache 15 min) ----------
-        $cacheKeyStatus = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_stat_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
-        $byStatus = Cache::remember($cacheKeyStatus, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
+        // --------- Taux d'incidents validés parmi tous les incidents enregistrés (Cache 15 min) ----------
+        $cacheKeyStatus = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_status_rate_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
+        $statusSummary = Cache::remember($cacheKeyStatus, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
             $q = DB::table('incidents')
-                ->selectRaw("COALESCE(incidents.statut_incident, 'N/A') as label, COUNT(*) as total");
-            self::applyValidatedIncidentScope($q, $provinceScope, $territoireScope);
-            return $q->groupBy('label')->orderByDesc('total')->get();
+                ->selectRaw(
+                    'COUNT(*) as total, SUM(CASE WHEN incidents.statut_incident = ? THEN 1 ELSE 0 END) as validated',
+                    [Incident::STATUS_VALIDATED]
+                );
+            self::applyIncidentScope($q, $provinceScope, $territoireScope);
+            $row = $q->first();
+
+            return [
+                'total' => (int) ($row->total ?? 0),
+                'validated' => (int) ($row->validated ?? 0),
+            ];
         });
+        $nonValidatedTotal = max($statusSummary['total'] - $statusSummary['validated'], 0);
+        $validatedPercentage = $statusSummary['total'] > 0
+            ? round(($statusSummary['validated'] / $statusSummary['total']) * 100, 1)
+            : 0.0;
 
         // --------- Incidents par type d'événement (Cache 15 min) ----------
         $cacheKeyEventType = self::INCIDENT_CACHE_VERSION . "_dashboard_inc_evt_" . ($provinceScope ?: 'all') . "_terr_" . ($territoireScope ?: 'all');
@@ -170,8 +182,11 @@ class Dashboard extends Component
                 'sum'   => $byProvinceTotal,
             ],
             'byStatus' => [
-                'labels' => $byStatus->pluck('label')->values(),
-                'data' => $byStatus->pluck('total')->map(fn ($total) => (int) $total)->values(),
+                'labels' => collect(['Validées', 'Non validées']),
+                'data' => collect([$statusSummary['validated'], $nonValidatedTotal]),
+                'validated' => $statusSummary['validated'],
+                'total' => $statusSummary['total'],
+                'validatedPercentage' => $validatedPercentage,
             ],
             'byEventType' => [
                 'labels' => $byEventType->pluck('label')->values(),
@@ -205,6 +220,15 @@ class Dashboard extends Component
         ?string $territoireScope
     ): void {
         $query->where('incidents.statut_incident', Incident::STATUS_VALIDATED);
+
+        self::applyIncidentScope($query, $provinceScope, $territoireScope);
+    }
+
+    private static function applyIncidentScope(
+        Builder $query,
+        ?string $provinceScope,
+        ?string $territoireScope
+    ): void {
 
         if ($provinceScope) {
             $query->where('incidents.code_province', $provinceScope);

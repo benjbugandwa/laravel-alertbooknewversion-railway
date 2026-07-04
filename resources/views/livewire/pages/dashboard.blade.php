@@ -73,9 +73,12 @@
         </x-ui-card>
 
         <x-ui-card>
-            <div class="text-sm text-gray-600">Statuts (catégories)</div>
+            <div class="text-sm text-gray-600">Taux de validation</div>
             <div class="mt-2 text-3xl font-bold">
-                {{ count($chart['byStatus']['labels']) }}
+                {{ number_format($chart['byStatus']['validatedPercentage'] ?? 0, 1) }}%
+            </div>
+            <div class="mt-2 text-xs text-gray-500">
+                {{ $chart['byStatus']['validated'] ?? 0 }} validées sur {{ $chart['byStatus']['total'] ?? 0 }} enregistrées
             </div>
         </x-ui-card>
     </div>
@@ -158,6 +161,12 @@
 
         <x-ui-card>
             <div class="font-semibold">Alertes par statut</div>
+            <div class="mt-1 text-sm text-gray-600">
+                <span class="font-semibold text-gray-900">
+                    {{ number_format($chart['byStatus']['validatedPercentage'] ?? 0, 1) }}%
+                </span>
+                validées ({{ $chart['byStatus']['validated'] ?? 0 }} sur {{ $chart['byStatus']['total'] ?? 0 }})
+            </div>
             <div class="mt-3">
                 <canvas id="chartStatus" height="200"></canvas>
             </div>
@@ -465,8 +474,7 @@
                             labels: p.byStatus.labels,
                             datasets: [{
                                 data: p.byStatus.data,
-                                backgroundColor: p.byStatus.labels.map((_, i) => palette[i % palette
-                                    .length]),
+                                backgroundColor: ['#16a34a', '#e5e7eb'],
                                 borderColor: '#fff',
                                 borderWidth: 2,
                                 hoverOffset: 6,
@@ -496,7 +504,7 @@
                                     }
                                 },
                                 datalabels: {
-                                    color: '#fff',
+                                    color: (ctx) => ctx.dataIndex === 0 ? '#fff' : '#374151',
                                     font: {
                                         weight: '700',
                                         size: 11
