@@ -10,9 +10,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ViolenceIncident extends Model
 {
     protected $table = 'violence_incidents';
+
     public $timestamps = false; // ton script a seulement created_at
 
     public $incrementing = false;
+
     protected $keyType = 'int';
 
     protected $fillable = [
@@ -32,5 +34,10 @@ class ViolenceIncident extends Model
     public function violence(): BelongsTo
     {
         return $this->belongsTo(Violence::class, 'id_violence', 'id');
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

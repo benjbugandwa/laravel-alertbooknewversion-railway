@@ -3,17 +3,25 @@
 namespace Tests\Feature;
 
 use App\Exceptions\BusinessRuleException;
+use App\Exports\IncidentsWorkbookExport;
 use App\Exports\Sheets\IncidentsSheet;
+use App\Exports\Sheets\ReponsesSheet;
+use App\Exports\Sheets\VictimesSheet;
+use App\Exports\Sheets\ViolencesSheet;
 use App\Livewire\Components\IncidentEditModal;
 use App\Livewire\Pages\Dashboard;
 use App\Models\Incident;
+use App\Models\Reponse;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\Victime;
 use App\Services\IncidentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+use Maatwebsite\Excel\Excel as ExcelFormat;
+use Maatwebsite\Excel\Facades\Excel;
 use Tests\TestCase;
 
 class IncidentReportingRulesTest extends TestCase
@@ -88,6 +96,135 @@ class IncidentReportingRulesTest extends TestCase
         $this->assertCount(1, $rows);
         $this->assertSame('ALT-VALIDATED', $rows->first()[0]);
         $this->assertSame('Province test', $rows->first()[2]);
+    }
+
+    public function test_incident_export_detail_sheets_keep_validated_incident_scope(): void
+    {
+        $user = $this->userWithRole('admin');
+
+        DB::table('territoires')->insert([
+            'code_territoire' => 'TEXP',
+            'nom_territoire' => 'Territoire export',
+            'code_province' => 'P01',
+        ]);
+        DB::table('violences')->insert([
+            ['id' => 1001, 'violence_name' => 'Violence A', 'categorie_name' => 'Categorie A'],
+            ['id' => 1002, 'violence_name' => 'Violence B', 'categorie_name' => 'Categorie B'],
+        ]);
+
+        $validated = $this->incidentFor($user, Incident::STATUS_VALIDATED, 'ALT-EXPORT', [
+            'code_territoire' => 'TEXP',
+        ]);
+        $pending = $this->incidentFor($user, 'En attente', 'ALT-PENDING-EXPORT', [
+            'code_territoire' => 'TEXP',
+        ]);
+
+        DB::table('violence_incidents')->insert([
+            [
+                'id' => 9101,
+                'id_incident' => $validated->id,
+                'id_violence' => 1001,
+                'description_violence' => 'Detail A',
+                'created_by' => $user->id,
+                'created_at' => now(),
+            ],
+            [
+                'id' => 9102,
+                'id_incident' => $validated->id,
+                'id_violence' => 1002,
+                'description_violence' => 'Detail B',
+                'created_by' => $user->id,
+                'created_at' => now(),
+            ],
+            [
+                'id' => 9103,
+                'id_incident' => $pending->id,
+                'id_violence' => 1001,
+                'description_violence' => 'Pending detail',
+                'created_by' => $user->id,
+                'created_at' => now(),
+            ],
+        ]);
+
+        Victime::create([
+            'incident_id' => $validated->id,
+            'violence_id' => 1001,
+            'profile_victimes' => 'Residents',
+            'nbre_femme_18a59ans' => 2,
+            'nbre_homme_18a59ans' => 3,
+            'description_faits' => 'Victimes validees',
+            'create_at' => now()->toDateString(),
+            'created_by' => $user->id,
+        ]);
+        Victime::create([
+            'incident_id' => $pending->id,
+            'violence_id' => 1001,
+            'profile_victimes' => 'Residents',
+            'description_faits' => 'Victimes en attente',
+            'create_at' => now()->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        Reponse::create([
+            'num_reponse' => 'REP-EXPORT-1',
+            'date_reponse' => now()->toDateString(),
+            'fournie_par' => 'Organisation',
+            'type_reponse' => 'Humanitaire',
+            'secteurs_couverts' => ['Sante', 'Protection'],
+            'nbre_menages_couverts' => 4,
+            'nbre_individus_couverts' => 12,
+            'alerte_id' => $validated->id,
+            'create_at' => now()->toDateString(),
+            'created_by' => $user->id,
+        ]);
+        Reponse::create([
+            'num_reponse' => 'REP-EXPORT-2',
+            'date_reponse' => now()->toDateString(),
+            'fournie_par' => 'Organisation',
+            'type_reponse' => 'Humanitaire',
+            'secteurs_couverts' => ['Sante'],
+            'alerte_id' => $pending->id,
+            'create_at' => now()->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        $from = now()->subDay()->toDateString();
+        $to = now()->addDay()->toDateString();
+
+        $violenceRows = (new ViolencesSheet($from, $to, 'P01', 'TEXP'))->collection();
+        $victimeRows = (new VictimesSheet($from, $to, 'P01', 'TEXP'))->collection();
+        $reponseRows = (new ReponsesSheet($from, $to, 'P01', 'TEXP'))->collection();
+
+        $this->assertCount(2, $violenceRows);
+        $this->assertSame(['ALT-EXPORT'], $violenceRows->pluck(0)->unique()->values()->all());
+        $this->assertCount(1, $victimeRows);
+        $this->assertSame(5, $victimeRows->first()[18]);
+        $this->assertCount(1, $reponseRows);
+        $this->assertSame('REP-EXPORT-1', $reponseRows->first()[4]);
+
+        $xlsx = Excel::raw(new IncidentsWorkbookExport(
+            from: $from,
+            to: $to,
+            province: 'P01',
+            includeViolences: true,
+            territoire: 'TEXP',
+            includeVictimes: true,
+            includeReponses: true,
+        ), ExcelFormat::XLSX);
+
+        $this->assertNotEmpty($xlsx);
+    }
+
+    public function test_incident_export_rejects_equal_start_and_end_dates(): void
+    {
+        $user = $this->userWithRole('admin');
+
+        $this->actingAs($user)
+            ->get(route('exports.incidents', [
+                'from' => '2026-07-01',
+                'to' => '2026-07-01',
+            ]))
+            ->assertSessionHasErrors('to');
     }
 
     public function test_unassigned_incident_without_violence_is_assigned_to_supervisor_when_validated(): void

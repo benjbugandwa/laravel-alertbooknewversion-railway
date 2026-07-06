@@ -30,9 +30,11 @@
         <x-ui-button wire:click="openCreate">
             + Nouvelle alerte
         </x-ui-button>
-        <x-ui-button variant="secondary" x-on:click="$dispatch('openIncidentsExport')">
+        <a href="{{ route('exports.index') }}"
+            class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-900 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
             Exporter
-        </x-ui-button>
+        </a>
     </div>
 
     <x-ui-card>

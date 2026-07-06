@@ -70,6 +70,9 @@
                     <x-nav-link href="{{ route('incidents.index') }}" :active="request()->routeIs('incidents.*')"
                         icon="alert-triangle">Alertes</x-nav-link>
 
+                    <x-nav-link href="{{ route('exports.index') }}" :active="request()->routeIs('exports.*')"
+                        icon="file-spreadsheet">Exporter</x-nav-link>
+
                     @if(!auth()->user()->hasRole('moniteur'))
                         <x-nav-link href="{{ route('mouvements.standalone') }}" :active="request()->routeIs('mouvements.*')"
                             icon="truck">Déplacements</x-nav-link>
@@ -151,6 +154,8 @@
                             icon="folder" @click="close()">Documents</x-nav-link>
                         <x-nav-link href="{{ route('incidents.index') }}" :active="false"
                             icon="alert-triangle" @click="close()">Alertes</x-nav-link>
+                        <x-nav-link href="{{ route('exports.index') }}" :active="request()->routeIs('exports.*')"
+                            icon="file-spreadsheet" @click="close()">Exporter</x-nav-link>
 
                         @if(!auth()->user()->hasRole('moniteur'))
                             <x-nav-link href="{{ route('mouvements.standalone') }}" :active="false"

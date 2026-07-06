@@ -1,30 +1,29 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DocumentationVideoController;
+use App\Http\Controllers\IncidentBriefingController;
+use App\Http\Controllers\IncidentExportController;
+use App\Http\Controllers\IncidentPrintController;
+use App\Http\Controllers\MovementPrintController;
 use App\Livewire\Pages\Dashboard;
-use App\Livewire\Pages\Organisations\Index as OrganisationsIndex;
-use App\Livewire\Pages\Users\Index as UsersIndex;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\Request;
-use App\Livewire\Pages\Users\Profile;
-use App\Livewire\Pages\Survivants\Index as SurvivantsIndex;
+use App\Livewire\Pages\Documents\Index as DocumentsIndex;
+use App\Livewire\Pages\Exports\Index as ExportsIndex;
 use App\Livewire\Pages\Incidents\Index as IncidentsIndex;
 use App\Livewire\Pages\Incidents\Show as IncidentsShow;
 use App\Livewire\Pages\MonitorAssignments\Index as MonitorAssignmentsIndex;
+use App\Livewire\Pages\Organisations\Index as OrganisationsIndex;
 use App\Livewire\Pages\ServiceProviders\Index as ServiceProvidersIndex;
-use App\Http\Controllers\IncidentPrintController;
-use App\Http\Controllers\IncidentBriefingController;
-use App\Http\Controllers\IncidentExportController;
-use App\Http\Controllers\DocumentationVideoController;
-use App\Livewire\Pages\Supervision\SuperviseurPerformance;
 use App\Livewire\Pages\Superviseurs\Performance;
-use App\Livewire\Pages\Documents\Index as DocumentsIndex;
-use App\Http\Controllers\MovementPrintController;
+use App\Livewire\Pages\Survivants\Index as SurvivantsIndex;
+use App\Livewire\Pages\Users\Index as UsersIndex;
+use App\Livewire\Pages\Users\Profile;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
+// Route::view('/', 'welcome');
 
-//Route::view('/', 'welcome');
-
-//Route::view('/', 'landing')->name('landing');
+// Route::view('/', 'landing')->name('landing');
 
 Route::get('/', function () {
     return view('landing');
@@ -58,6 +57,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/organisations', OrganisationsIndex::class)->name('organisations.index');
     Route::get('/documents', DocumentsIndex::class)->name('documents.index');
     Route::get('/profile', Profile::class)->name('profile');
+    Route::get('/exports', ExportsIndex::class)->name('exports.index');
 
     Route::get('/survivants', SurvivantsIndex::class)->name('survivants.index');
     Route::get('/incidents', IncidentsIndex::class)->name('incidents.index');
@@ -86,8 +86,6 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::get('/organisations', OrganisationsIndex::class)->name('organisations.index');
 
-
-
     Route::middleware(['role:superadmin,admin'])->group(function () {
         Route::get('/supervision/performance', Performance::class)->name('supervision.performance');
     });
@@ -97,12 +95,10 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/service-providers', ServiceProvidersIndex::class)->name('service-providers.index');
 });*/
 
-
-
-
-//Temporaire pour tester les rôles et permissions
+// Temporaire pour tester les rôles et permissions
 Route::middleware(['auth', 'active'])->get('/whoami', function () {
     $u = Auth::user();
+
     return [
         'email' => $u->email,
         'province' => $u->code_province,
@@ -115,8 +111,6 @@ Route::middleware(['auth', 'active', 'role:superadmin'])->group(function () {
     Route::get('/auteurs', \App\Livewire\Pages\Auteurs\Index::class)->name('auteurs.index');
     Route::get('/assignations-moniteurs', MonitorAssignmentsIndex::class)->name('monitor-assignments.index');
 });
-
-
 
 /*
 // Superadmin uniquement
@@ -137,14 +131,11 @@ Route::middleware(['auth', 'active', 'role:superadmin'])->group(function () {
             ->name('incidents.index');
     });*/
 
-
-
-
 /*Route::view('profile', 'profile')
     ->middleware(['auth'])
     ->name('profile');*/
 
-//Route::middleware(['auth', 'active'])->get('/profile', Profile::class)->name('profile');
+// Route::middleware(['auth', 'active'])->get('/profile', Profile::class)->name('profile');
 
 Route::post('/logout', function (Request $request) {
     Auth::logout();
@@ -155,9 +146,4 @@ Route::post('/logout', function (Request $request) {
     return redirect()->route('landing');
 })->name('logout');
 
-
-
-
-
-
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';
