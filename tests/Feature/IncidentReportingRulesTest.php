@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Models\Victime;
 use App\Services\IncidentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -32,6 +33,8 @@ class IncidentReportingRulesTest extends TestCase
     {
         parent::setUp();
 
+        Cache::flush();
+
         DB::table('provinces')->insert([
             'code_province' => 'P01',
             'nom_province' => 'Province test',
@@ -43,7 +46,7 @@ class IncidentReportingRulesTest extends TestCase
         ]);
     }
 
-    public function test_dashboard_filters_work_and_status_chart_uses_all_incidents_as_denominator(): void
+    public function test_dashboard_validation_rate_ignores_archived_incidents(): void
     {
         $superadmin = $this->userWithRole('superadmin');
 
@@ -67,14 +70,32 @@ class IncidentReportingRulesTest extends TestCase
                 'nom_territoire' => 'Territoire test',
             ]])
             ->assertViewHas('chart', function (array $chart): bool {
-                return $chart['byStatus']['labels']->all() === ['Validées', 'Non validées']
-                    && $chart['byStatus']['data']->all() === [1, 2]
+                return $chart['byStatus']['labels']->all() === ['Validées', 'En attente']
+                    && $chart['byStatus']['data']->all() === [1, 1]
                     && $chart['byStatus']['validated'] === 1
-                    && $chart['byStatus']['total'] === 3
-                    && $chart['byStatus']['validatedPercentage'] === 33.3
+                    && $chart['byStatus']['pending'] === 1
+                    && $chart['byStatus']['total'] === 2
+                    && $chart['byStatus']['validatedPercentage'] === 50.0
                     && $chart['byProvince']['labels']->all() === ['Province test']
                     && $chart['byProvince']['sum'] === 1
                     && $chart['evolution']['data']->sum() === 1;
+            });
+    }
+
+    public function test_dashboard_validation_rate_is_full_when_no_incident_is_pending(): void
+    {
+        $superadmin = $this->userWithRole('superadmin');
+
+        $this->incidentFor($superadmin, Incident::STATUS_VALIDATED, 'ALT-VALIDATED-ONLY');
+        $this->incidentFor($superadmin, Incident::STATUS_ARCHIVED, 'ALT-ARCHIVED-ONLY');
+
+        Livewire::actingAs($superadmin)
+            ->test(Dashboard::class)
+            ->assertViewHas('chart', function (array $chart): bool {
+                return $chart['byStatus']['validated'] === 1
+                    && $chart['byStatus']['pending'] === 0
+                    && $chart['byStatus']['total'] === 1
+                    && $chart['byStatus']['validatedPercentage'] === 100.0;
             });
     }
 
