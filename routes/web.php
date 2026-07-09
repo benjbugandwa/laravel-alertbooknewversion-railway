@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\DocumentationVideoController;
+use App\Http\Controllers\AnalysisReportController;
 use App\Http\Controllers\IncidentBriefingController;
 use App\Http\Controllers\IncidentExportController;
 use App\Http\Controllers\IncidentPrintController;
 use App\Http\Controllers\MovementPrintController;
 use App\Livewire\Pages\Dashboard;
+use App\Livewire\Pages\Analyses\Index as AnalysesIndex;
 use App\Livewire\Pages\Documents\Index as DocumentsIndex;
 use App\Livewire\Pages\Exports\Index as ExportsIndex;
 use App\Livewire\Pages\Incidents\Index as IncidentsIndex;
@@ -58,6 +60,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/documents', DocumentsIndex::class)->name('documents.index');
     Route::get('/profile', Profile::class)->name('profile');
     Route::get('/exports', ExportsIndex::class)->name('exports.index');
+    Route::get('/analyses', AnalysesIndex::class)->name('analyses.index');
+    Route::get('/analyses/rapport', [AnalysisReportController::class, 'download'])
+        ->name('analyses.report');
 
     Route::get('/survivants', SurvivantsIndex::class)->name('survivants.index');
     Route::get('/incidents', IncidentsIndex::class)->name('incidents.index');
