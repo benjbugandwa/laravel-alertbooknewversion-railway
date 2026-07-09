@@ -264,19 +264,19 @@
                     <div class="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-3 border-b pb-2">Intensité des incidents</div>
                     <div class="space-y-2">
                         <div class="flex items-center gap-3">
-                            <span class="w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: #dc2626"></span>
+                            <span class="w-4 h-4 rounded-full border-2 shadow-sm" style="background-color: #dc2626; border-color: #93c5fd"></span>
                             <span class="text-xs font-medium text-gray-700">Volume eleve</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: #f59e0b"></span>
+                            <span class="w-4 h-4 rounded-full border-2 shadow-sm" style="background-color: #f59e0b; border-color: #93c5fd"></span>
                             <span class="text-xs font-medium text-gray-700">Volume moyen</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: #2563eb"></span>
+                            <span class="w-4 h-4 rounded-full border-2 shadow-sm" style="background-color: #2563eb; border-color: #93c5fd"></span>
                             <span class="text-xs font-medium text-gray-700">Volume faible</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="w-3 h-3 rounded-full border-2 border-white shadow-sm" style="background-color: #2563eb"></span>
+                            <span class="w-3 h-3 rounded-full border-2 shadow-sm" style="background-color: #2563eb; border-color: #93c5fd"></span>
                             <span class="text-xs font-medium text-gray-700">Cercle proportionnel</span>
                         </div>
                         <div class="flex items-center gap-3">
@@ -707,10 +707,10 @@
                         const color = this.getTerritoryColor(count, max);
                         const marker = L.circleMarker([lat, lon], {
                             radius: this.getTerritoryRadius(count, max),
-                            color: '#ffffff',
-                            weight: 2,
+                            color: '#93c5fd',
+                            weight: 4,
                             fillColor: color,
-                            fillOpacity: 0.76,
+                            fillOpacity: 0.72,
                             opacity: 1,
                         }).addTo(this.bubblesLayer);
 
@@ -718,14 +718,16 @@
                             mouseover: (event) => {
                                 event.target.setStyle({
                                     fillOpacity: 0.95,
-                                    weight: 3,
+                                    color: '#38bdf8',
+                                    weight: 6,
                                 });
                                 event.target.bringToFront();
                             },
                             mouseout: (event) => {
                                 event.target.setStyle({
-                                    fillOpacity: 0.76,
-                                    weight: 2,
+                                    color: '#93c5fd',
+                                    fillOpacity: 0.72,
+                                    weight: 4,
                                 });
                             },
                         });
