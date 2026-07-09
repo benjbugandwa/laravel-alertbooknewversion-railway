@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AnalysisReportService
 {
@@ -74,10 +75,12 @@ class AnalysisReportService
 
     private function hotZones(CarbonImmutable $from, CarbonImmutable $to, ?string $provinceCode, ?string $territoireCode): Collection
     {
+        $zoneLabel = "COALESCE(zonesantes.nom_zonesante, incidents.code_zonesante, 'Non renseignee')";
+
         $query = $this->baseIncidentQuery($from, $to, $provinceCode, $territoireCode)
             ->leftJoin('zonesantes', 'incidents.code_zonesante', '=', 'zonesantes.code_zonesante')
-            ->selectRaw("COALESCE(zonesantes.nom_zonesante, incidents.code_zonesante, 'Non renseignee') as label, COUNT(*) as total")
-            ->groupBy('label')
+            ->selectRaw($zoneLabel.' as label, COUNT(*) as total')
+            ->groupByRaw($zoneLabel)
             ->orderByDesc('total')
             ->limit(20);
 
@@ -86,6 +89,10 @@ class AnalysisReportService
 
     private function hotTerritories(CarbonImmutable $from, CarbonImmutable $to, ?string $provinceCode, ?string $territoireCode): Collection
     {
+        if (! Schema::hasColumns('territoires', ['latitude', 'longitude'])) {
+            return collect();
+        }
+
         return $this->baseIncidentQuery($from, $to, $provinceCode, $territoireCode)
             ->join('territoires', 'incidents.code_territoire', '=', 'territoires.code_territoire')
             ->whereNotNull('territoires.latitude')
@@ -111,19 +118,23 @@ class AnalysisReportService
 
     private function violenceByZone(CarbonImmutable $from, CarbonImmutable $to, ?string $provinceCode, ?string $territoireCode): Collection
     {
+        $zoneLabel = "COALESCE(zonesantes.nom_zonesante, incidents.code_zonesante, 'Non renseignee')";
+        $violenceLabel = "COALESCE(violences.violence_name, 'Non renseignee')";
+
         $query = DB::table('victimes')
             ->join('incidents', 'victimes.incident_id', '=', 'incidents.id')
             ->leftJoin('violences', 'victimes.violence_id', '=', 'violences.id')
             ->leftJoin('zonesantes', 'incidents.code_zonesante', '=', 'zonesantes.code_zonesante')
-            ->selectRaw("COALESCE(zonesantes.nom_zonesante, incidents.code_zonesante, 'Non renseignee') as zone_label")
-            ->selectRaw("COALESCE(violences.violence_name, 'Non renseignee') as violence_label")
+            ->selectRaw($zoneLabel.' as zone_label')
+            ->selectRaw($violenceLabel.' as violence_label')
             ->selectRaw('SUM('.self::VICTIM_TOTAL_SQL.') as total_victims');
 
         $this->applyIncidentScope($query, $from, $to, $provinceCode, $territoireCode);
 
         return $this->withPercentages(
             $query
-                ->groupBy('zone_label', 'violence_label')
+                ->groupByRaw($zoneLabel)
+                ->groupByRaw($violenceLabel)
                 ->orderByDesc('total_victims')
                 ->limit(30)
                 ->get()
@@ -139,17 +150,23 @@ class AnalysisReportService
 
     private function movements(CarbonImmutable $from, CarbonImmutable $to, ?string $provinceCode, ?string $territoireCode): Collection
     {
+        $territoireProv = "COALESCE(terr_prov.nom_territoire, mouvements.code_territoire_prov, '-')";
+        $zoneProv = "COALESCE(zone_prov.nom_zonesante, mouvements.code_zonesante_prov, '-')";
+        $territoireAccl = "COALESCE(terr_accl.nom_territoire, mouvements.code_territoire_accl, '-')";
+        $zoneAccl = "COALESCE(zone_accl.nom_zonesante, mouvements.code_zonesante_accl, '-')";
+        $typeMouvement = "COALESCE(mouvements.type_mouvement, '-')";
+
         $query = DB::table('mouvements')
             ->join('incidents', 'mouvements.incident_id', '=', 'incidents.id')
             ->leftJoin('territoires as terr_prov', 'mouvements.code_territoire_prov', '=', 'terr_prov.code_territoire')
             ->leftJoin('zonesantes as zone_prov', 'mouvements.code_zonesante_prov', '=', 'zone_prov.code_zonesante')
             ->leftJoin('territoires as terr_accl', 'mouvements.code_territoire_accl', '=', 'terr_accl.code_territoire')
             ->leftJoin('zonesantes as zone_accl', 'mouvements.code_zonesante_accl', '=', 'zone_accl.code_zonesante')
-            ->selectRaw("COALESCE(terr_prov.nom_territoire, mouvements.code_territoire_prov, '-') as territoire_prov")
-            ->selectRaw("COALESCE(zone_prov.nom_zonesante, mouvements.code_zonesante_prov, '-') as zone_prov")
-            ->selectRaw("COALESCE(terr_accl.nom_territoire, mouvements.code_territoire_accl, '-') as territoire_accl")
-            ->selectRaw("COALESCE(zone_accl.nom_zonesante, mouvements.code_zonesante_accl, '-') as zone_accl")
-            ->selectRaw("COALESCE(mouvements.type_mouvement, '-') as type_mouvement")
+            ->selectRaw($territoireProv.' as territoire_prov')
+            ->selectRaw($zoneProv.' as zone_prov')
+            ->selectRaw($territoireAccl.' as territoire_accl')
+            ->selectRaw($zoneAccl.' as zone_accl')
+            ->selectRaw($typeMouvement.' as type_mouvement')
             ->selectRaw('SUM(COALESCE(mouvements.estim_nbre_menages, 0)) as households')
             ->selectRaw('SUM(COALESCE(mouvements.estim_nbre_personnes, 0)) as people')
             ->selectRaw('COUNT(*) as total');
@@ -157,7 +174,11 @@ class AnalysisReportService
         $this->applyIncidentScope($query, $from, $to, $provinceCode, $territoireCode);
 
         return $query
-            ->groupBy('territoire_prov', 'zone_prov', 'territoire_accl', 'zone_accl', 'type_mouvement')
+            ->groupByRaw($territoireProv)
+            ->groupByRaw($zoneProv)
+            ->groupByRaw($territoireAccl)
+            ->groupByRaw($zoneAccl)
+            ->groupByRaw($typeMouvement)
             ->orderByDesc('people')
             ->limit(30)
             ->get()
@@ -173,10 +194,12 @@ class AnalysisReportService
 
     private function eventTypes(CarbonImmutable $from, CarbonImmutable $to, ?string $provinceCode, ?string $territoireCode): Collection
     {
+        $eventLabel = "COALESCE(evenements.nom_evenement, incidents.code_evenement, 'Non renseigne')";
+
         $query = $this->baseIncidentQuery($from, $to, $provinceCode, $territoireCode)
             ->leftJoin('evenements', 'incidents.code_evenement', '=', 'evenements.code_evenement')
-            ->selectRaw("COALESCE(evenements.nom_evenement, incidents.code_evenement, 'Non renseigne') as label, COUNT(*) as total")
-            ->groupBy('label')
+            ->selectRaw($eventLabel.' as label, COUNT(*) as total')
+            ->groupByRaw($eventLabel)
             ->orderByDesc('total')
             ->limit(15);
 

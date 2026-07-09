@@ -73,26 +73,40 @@ class AnalysisReportTest extends TestCase
             ->assertHeader('content-type', 'application/pdf');
     }
 
-    private function seedAnalysisData(): User
+    public function test_analysis_report_pdf_can_be_downloaded_for_tanganyika_scope(): void
+    {
+        $user = $this->seedAnalysisData('CD74', 'CD7410', 'CD741001');
+
+        $this->actingAs($user)
+            ->get(route('analyses.report', [
+                'from' => '2026-05-01',
+                'to' => '2026-07-09',
+                'province' => 'CD74',
+            ]))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+    }
+
+    private function seedAnalysisData(string $provinceCode = 'P01', string $territoireCode = 'T01', string $zoneCode = 'Z01'): User
     {
         DB::table('provinces')->insert([
-            'code_province' => 'P01',
+            'code_province' => $provinceCode,
             'nom_province' => 'Province test',
             'is_active' => 'YES',
         ]);
 
         DB::table('territoires')->insert([
-            'code_territoire' => 'T01',
+            'code_territoire' => $territoireCode,
             'nom_territoire' => 'Territoire test',
-            'code_province' => 'P01',
+            'code_province' => $provinceCode,
             'latitude' => -5.5,
             'longitude' => 28.2,
         ]);
 
         DB::table('zonesantes')->insert([
-            'code_zonesante' => 'Z01',
+            'code_zonesante' => $zoneCode,
             'nom_zonesante' => 'Zone test',
-            'code_territoire' => 'T01',
+            'code_territoire' => $territoireCode,
         ]);
 
         DB::table('evenements')->insert([
@@ -107,15 +121,15 @@ class AnalysisReportTest extends TestCase
         ]);
 
         $user = User::factory()->create([
-            'code_province' => 'P01',
+            'code_province' => $provinceCode,
             'is_active' => true,
         ]);
         $role = Role::firstOrCreate(['slug' => 'superadmin'], ['name' => 'Superadmin']);
         $user->roles()->attach($role);
 
-        $validated = $this->incidentFor($user, Incident::STATUS_VALIDATED, 'ALT-VALIDATED', '2026-07-15');
-        $this->incidentFor($user, 'En attente', 'ALT-PENDING', '2026-07-15');
-        $this->incidentFor($user, Incident::STATUS_VALIDATED, 'ALT-OLD', '2026-06-01');
+        $validated = $this->incidentFor($user, Incident::STATUS_VALIDATED, 'ALT-VALIDATED', '2026-07-01', $provinceCode, $territoireCode, $zoneCode);
+        $this->incidentFor($user, 'En attente', 'ALT-PENDING', '2026-07-01', $provinceCode, $territoireCode, $zoneCode);
+        $this->incidentFor($user, Incident::STATUS_VALIDATED, 'ALT-OLD', '2026-04-01', $provinceCode, $territoireCode, $zoneCode);
 
         DB::table('victimes')->insert([
             'incident_id' => $validated,
@@ -134,13 +148,13 @@ class AnalysisReportTest extends TestCase
             'date_mouvement' => '2026-07-16',
             'type_mouvement' => 'Retour',
             'source_info' => 'Source test',
-            'code_province_prov' => 'P01',
-            'code_territoire_prov' => 'T01',
-            'code_zonesante_prov' => 'Z01',
+            'code_province_prov' => $provinceCode,
+            'code_territoire_prov' => $territoireCode,
+            'code_zonesante_prov' => $zoneCode,
             'localite_prov' => 'Localite prov',
-            'code_province_accl' => 'P01',
-            'code_territoire_accl' => 'T01',
-            'code_zonesante_accl' => 'Z01',
+            'code_province_accl' => $provinceCode,
+            'code_territoire_accl' => $territoireCode,
+            'code_zonesante_accl' => $zoneCode,
             'localite_accl' => 'Localite accl',
             'created_by' => $user->id,
             'estim_nbre_menages' => 4,
@@ -153,7 +167,15 @@ class AnalysisReportTest extends TestCase
         return $user->refresh();
     }
 
-    private function incidentFor(User $creator, string $status, string $code, string $date): string
+    private function incidentFor(
+        User $creator,
+        string $status,
+        string $code,
+        string $date,
+        string $provinceCode,
+        string $territoireCode,
+        string $zoneCode
+    ): string
     {
         $id = (string) Str::uuid();
 
@@ -162,9 +184,9 @@ class AnalysisReportTest extends TestCase
             'code_incident' => $code,
             'date_incident' => $date,
             'created_by' => $creator->id,
-            'code_province' => 'P01',
-            'code_territoire' => 'T01',
-            'code_zonesante' => 'Z01',
+            'code_province' => $provinceCode,
+            'code_territoire' => $territoireCode,
+            'code_zonesante' => $zoneCode,
             'code_evenement' => 'EVENT01',
             'statut_incident' => $status,
             'severite' => 'Faible',
