@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Exceptions\BusinessRuleException;
 use App\Exports\IncidentsWorkbookExport;
 use App\Exports\Sheets\IncidentsSheet;
+use App\Exports\Sheets\MouvementsSheet;
 use App\Exports\Sheets\ReponsesSheet;
 use App\Exports\Sheets\VictimesSheet;
 use App\Exports\Sheets\ViolencesSheet;
@@ -195,6 +196,16 @@ class IncidentReportingRulesTest extends TestCase
             'nom_territoire' => 'Territoire export',
             'code_province' => 'P01',
         ]);
+        DB::table('zonesantes')->insert([
+            'code_zonesante' => 'ZEXP',
+            'nom_zonesante' => 'Zone export',
+            'code_territoire' => 'TEXP',
+        ]);
+        DB::table('airesantes')->insert([
+            'code_airesante' => 'AEXP',
+            'nom_airesante' => 'Aire export',
+            'code_zonesante' => 'ZEXP',
+        ]);
         DB::table('violences')->insert([
             ['id' => 1001, 'violence_name' => 'Violence A', 'categorie_name' => 'Categorie A'],
             ['id' => 1002, 'violence_name' => 'Violence B', 'categorie_name' => 'Categorie B'],
@@ -202,9 +213,13 @@ class IncidentReportingRulesTest extends TestCase
 
         $validated = $this->incidentFor($user, Incident::STATUS_VALIDATED, 'ALT-EXPORT', [
             'code_territoire' => 'TEXP',
+            'code_zonesante' => 'ZEXP',
+            'code_airesante' => 'AEXP',
         ]);
         $pending = $this->incidentFor($user, 'En attente', 'ALT-PENDING-EXPORT', [
             'code_territoire' => 'TEXP',
+            'code_zonesante' => 'ZEXP',
+            'code_airesante' => 'AEXP',
         ]);
 
         DB::table('violence_incidents')->insert([
@@ -276,17 +291,68 @@ class IncidentReportingRulesTest extends TestCase
             'created_by' => $user->id,
         ]);
 
+        DB::table('mouvements')->insert([
+            [
+                'date_mouvement' => now()->toDateString(),
+                'type_mouvement' => 'Retour',
+                'source_info' => 'Source mouvement valide',
+                'code_province_prov' => 'P01',
+                'code_territoire_prov' => 'TEXP',
+                'code_zonesante_prov' => 'ZEXP',
+                'localite_prov' => 'Localite provenance',
+                'code_province_accl' => 'P01',
+                'code_territoire_accl' => 'TEXP',
+                'code_zonesante_accl' => 'ZEXP',
+                'localite_accl' => 'Localite accueil',
+                'type_logement' => 'Famille accueil',
+                'created_by' => $user->id,
+                'estim_nbre_menages' => 7,
+                'estim_nbre_personnes' => 28,
+                'remarques_mouvement' => 'Mouvement valide',
+                'incident_id' => $validated->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'date_mouvement' => now()->toDateString(),
+                'type_mouvement' => 'Fuite',
+                'source_info' => 'Source mouvement attente',
+                'code_province_prov' => 'P01',
+                'code_territoire_prov' => 'TEXP',
+                'code_zonesante_prov' => 'ZEXP',
+                'localite_prov' => 'Localite provenance attente',
+                'code_province_accl' => 'P01',
+                'code_territoire_accl' => 'TEXP',
+                'code_zonesante_accl' => 'ZEXP',
+                'localite_accl' => 'Localite accueil attente',
+                'type_logement' => null,
+                'created_by' => $user->id,
+                'estim_nbre_menages' => null,
+                'estim_nbre_personnes' => null,
+                'remarques_mouvement' => null,
+                'incident_id' => $pending->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
         $from = now()->subDay()->toDateString();
         $to = now()->addDay()->toDateString();
 
         $violenceRows = (new ViolencesSheet($from, $to, 'P01', 'TEXP'))->collection();
         $victimeRows = (new VictimesSheet($from, $to, 'P01', 'TEXP'))->collection();
+        $mouvementRows = (new MouvementsSheet($from, $to, 'P01', 'TEXP'))->collection();
         $reponseRows = (new ReponsesSheet($from, $to, 'P01', 'TEXP'))->collection();
 
         $this->assertCount(2, $violenceRows);
         $this->assertSame(['ALT-EXPORT'], $violenceRows->pluck(0)->unique()->values()->all());
         $this->assertCount(1, $victimeRows);
-        $this->assertSame(5, $victimeRows->first()[18]);
+        $this->assertSame('Zone export', $victimeRows->first()[4]);
+        $this->assertSame('Aire export', $victimeRows->first()[5]);
+        $this->assertSame(5, $victimeRows->first()[20]);
+        $this->assertCount(1, $mouvementRows);
+        $this->assertSame('ALT-EXPORT', $mouvementRows->first()[0]);
+        $this->assertSame(28, $mouvementRows->first()[18]);
         $this->assertCount(1, $reponseRows);
         $this->assertSame('REP-EXPORT-1', $reponseRows->first()[4]);
 

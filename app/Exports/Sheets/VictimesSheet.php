@@ -39,6 +39,8 @@ class VictimesSheet implements FromCollection, ShouldAutoSize, WithEvents, WithH
             'date_incident',
             'province',
             'territoire',
+            'zone_sante',
+            'aire_sante',
             'violence_id',
             'violence',
             'categorie_violence',
@@ -66,7 +68,7 @@ class VictimesSheet implements FromCollection, ShouldAutoSize, WithEvents, WithH
     {
         return Victime::query()
             ->whereHas('incident', fn ($query) => $this->filters->applyToRelatedIncidentQuery($query))
-            ->with(['incident.province', 'incident.territoire', 'violence', 'creator'])
+            ->with(['incident.province', 'incident.territoire', 'incident.zoneSante', 'incident.aireSante', 'violence', 'creator'])
             ->orderBy('incident_id')
             ->orderBy('violence_id')
             ->get()
@@ -89,6 +91,8 @@ class VictimesSheet implements FromCollection, ShouldAutoSize, WithEvents, WithH
                     optional($victime->incident?->date_incident)->format('Y-m-d'),
                     $victime->incident?->province?->nom_province ?? '-',
                     $victime->incident?->territoire?->nom_territoire ?? $victime->incident?->code_territoire,
+                    $victime->incident?->zoneSante?->nom_zonesante ?? $victime->incident?->code_zonesante,
+                    $victime->incident?->aireSante?->nom_airesante ?? $victime->incident?->code_airesante,
                     $victime->violence_id,
                     $victime->violence?->violence_name ?? '-',
                     $victime->violence?->categorie_name ?? '-',

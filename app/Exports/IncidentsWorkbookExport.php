@@ -51,6 +51,13 @@ class IncidentsWorkbookExport implements WithMultipleSheets
             );
         }
 
+        $sheets[] = new Sheets\MouvementsSheet(
+            from: $this->from,
+            to: $this->to,
+            province: $this->province,
+            territoire: $this->territoire,
+        );
+
         if ($this->includeReponses) {
             $sheets[] = new Sheets\ReponsesSheet(
                 from: $this->from,
