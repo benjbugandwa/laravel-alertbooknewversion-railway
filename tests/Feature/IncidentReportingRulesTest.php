@@ -99,6 +99,73 @@ class IncidentReportingRulesTest extends TestCase
             });
     }
 
+    public function test_dashboard_territory_map_uses_coordinates_and_event_breakdown_for_selected_period(): void
+    {
+        $superadmin = $this->userWithRole('superadmin');
+
+        DB::table('territoires')->insert([
+            [
+                'code_territoire' => 'TMAP',
+                'nom_territoire' => 'Territoire carte',
+                'code_province' => 'P01',
+                'latitude' => -2.123456,
+                'longitude' => 28.654321,
+            ],
+            [
+                'code_territoire' => 'TNOCOORD',
+                'nom_territoire' => 'Territoire sans coordonnees',
+                'code_province' => 'P01',
+                'latitude' => null,
+                'longitude' => null,
+            ],
+        ]);
+        DB::table('evenements')->insert([
+            'code_evenement' => 'EVENT02',
+            'nom_evenement' => 'Distribution test',
+        ]);
+
+        $this->incidentFor($superadmin, Incident::STATUS_VALIDATED, 'ALT-MAP-1', [
+            'code_territoire' => 'TMAP',
+            'code_evenement' => 'EVENT01',
+        ]);
+        $this->incidentFor($superadmin, Incident::STATUS_VALIDATED, 'ALT-MAP-2', [
+            'code_territoire' => 'TMAP',
+            'code_evenement' => 'EVENT02',
+        ]);
+        $this->incidentFor($superadmin, Incident::STATUS_VALIDATED, 'ALT-MAP-OLD', [
+            'code_territoire' => 'TMAP',
+            'date_incident' => now()->subDays(60),
+        ]);
+        $this->incidentFor($superadmin, 'En attente', 'ALT-MAP-PENDING', [
+            'code_territoire' => 'TMAP',
+        ]);
+        $this->incidentFor($superadmin, Incident::STATUS_VALIDATED, 'ALT-MAP-NOCOORD', [
+            'code_territoire' => 'TNOCOORD',
+        ]);
+
+        Livewire::actingAs($superadmin)
+            ->test(Dashboard::class)
+            ->call('setDays', 30)
+            ->set('selectedProvince', 'P01')
+            ->assertViewHas('chart', function (array $chart): bool {
+                $map = $chart['territoryMap'];
+                $point = $map['points'][0] ?? null;
+                $events = collect($point['events'] ?? [])->pluck('total', 'label');
+
+                return $map['total'] === 2
+                    && $map['max'] === 2
+                    && $map['period_days'] === 30
+                    && count($map['points']) === 1
+                    && $point['code_territoire'] === 'TMAP'
+                    && $point['nom_territoire'] === 'Territoire carte'
+                    && $point['latitude'] === -2.123456
+                    && $point['longitude'] === 28.654321
+                    && $point['total'] === 2
+                    && $events->get('Distribution test') === 1
+                    && $events->sum() === 2;
+            });
+    }
+
     public function test_incident_export_only_contains_validated_incidents(): void
     {
         $user = $this->userWithRole('admin');

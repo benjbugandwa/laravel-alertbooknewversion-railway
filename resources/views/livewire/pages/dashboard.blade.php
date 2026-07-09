@@ -241,56 +241,47 @@
         <x-ui-card class="lg:col-span-2 relative overflow-hidden">
             <div class="flex items-center justify-between mb-4">
                 <div class="font-bold text-gray-800 text-lg">Répartition géographique des incidents</div>
-                <div class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Chefferies / Secteurs (RDC)</div>
+                <div class="flex items-center gap-2 text-xs font-semibold">
+                    <span class="rounded-full bg-blue-50 px-3 py-1 text-blue-700 border border-blue-100">
+                        {{ $chart['territoryMap']['total'] ?? 0 }} incidents
+                    </span>
+                    <span class="rounded-full bg-gray-50 px-3 py-1 text-gray-700 border border-gray-200">
+                        {{ count($chart['territoryMap']['points'] ?? []) }} territoires
+                    </span>
+                </div>
             </div>
             
             <div class="relative z-0 border border-gray-200 rounded-2xl overflow-hidden shadow-sm" wire:ignore>
-                <div id="mapChefferies" style="height: 600px; width: 100%; z-index: 1;"></div>
-                
-                <!-- Info Panel Overlay (UNHCR Style) -->
-                <div id="mapInfoPanel" class="absolute top-4 right-4 z-[1000] bg-white/95 backdrop-blur-md border border-gray-200 rounded-xl p-5 shadow-2xl w-64 transform translate-x-80 transition-transform duration-300">
-                    <div class="flex justify-between items-start mb-3">
-                        <h3 id="panelChefferieName" class="font-bold text-onu text-xl leading-tight">Chefferie</h3>
-                        <button onclick="document.getElementById('mapInfoPanel').classList.add('translate-x-80')" class="text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full p-1 leading-none">✕</button>
-                    </div>
-                    <div class="space-y-4">
-                        <div>
-                            <div class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Nombre d'incidents</div>
-                            <div id="panelIncidentCount" class="text-4xl font-black text-gray-900">0</div>
-                        </div>
-                        <div class="pt-3 border-t border-gray-100">
-                             <div class="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1.5">Impact Relatif</div>
-                             <div class="w-full bg-gray-100 rounded-full h-2 mb-1">
-                                <div id="panelPercentBar" class="bg-onu h-2 rounded-full" style="width: 0%"></div>
-                             </div>
-                             <div id="panelPercentText" class="text-xs font-bold text-gray-700">0% du total</div>
-                        </div>
-                    </div>
-                </div>
+                <div id="mapTerritories" class="h-[620px] w-full z-[1]"></div>
 
+                <div id="territoryMapEmpty" class="hidden absolute left-1/2 top-1/2 z-[1000] w-[min(90%,26rem)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-gray-200 bg-white/95 px-5 py-4 text-center shadow-xl">
+                    <div class="font-semibold text-gray-900">Aucune donnee cartographique</div>
+                    <div class="mt-1 text-sm text-gray-500">Aucun incident valide avec territoire coordonne sur la periode affichee.</div>
+                </div>
+                
                 <!-- Legend Overlay -->
                 <div class="absolute bottom-8 left-8 z-[1000] bg-white/95 backdrop-blur-md border border-gray-200 rounded-xl p-4 shadow-xl min-w-[200px]">
                     <div class="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-3 border-b pb-2">Intensité des incidents</div>
                     <div class="space-y-2">
                         <div class="flex items-center gap-3">
-                            <span class="w-4 h-3 rounded-sm" style="background-color: #67000d"></span>
-                            <span class="text-xs font-medium text-gray-700">> 100 incidents</span>
+                            <span class="w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: #dc2626"></span>
+                            <span class="text-xs font-medium text-gray-700">Volume eleve</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="w-4 h-3 rounded-sm" style="background-color: #cb181d"></span>
-                            <span class="text-xs font-medium text-gray-700">51 - 100</span>
+                            <span class="w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: #f59e0b"></span>
+                            <span class="text-xs font-medium text-gray-700">Volume moyen</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="w-4 h-3 rounded-sm" style="background-color: #fb6a4a"></span>
-                            <span class="text-xs font-medium text-gray-700">21 - 50</span>
+                            <span class="w-4 h-4 rounded-full border-2 border-white shadow-sm" style="background-color: #2563eb"></span>
+                            <span class="text-xs font-medium text-gray-700">Volume faible</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="w-4 h-3 rounded-sm" style="background-color: #fcae91"></span>
-                            <span class="text-xs font-medium text-gray-700">1 - 20</span>
+                            <span class="w-3 h-3 rounded-full border-2 border-white shadow-sm" style="background-color: #2563eb"></span>
+                            <span class="text-xs font-medium text-gray-700">Cercle proportionnel</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="w-4 h-3 rounded-sm bg-gray-100 border border-gray-200"></span>
-                            <span class="text-xs font-medium text-gray-500">Aucun incident</span>
+                            <span class="w-4 h-4 rounded-full bg-gray-100 border border-gray-200"></span>
+                            <span class="text-xs font-medium text-gray-500">Aucun point si aucune coordonnee</span>
                         </div>
                     </div>
                 </div>
@@ -314,9 +305,7 @@
                     province: null,
                 },
                 map: null,
-                geoJsonLayer: null,
                 bubblesLayer: null,
-                geoJsonData: null,
 
                 init() {
                     this.buildAll(this.payload);
@@ -344,9 +333,7 @@
                     this.payload = newPayload;
                     this.destroyAll();
                     this.buildAll(this.payload);
-                    if (this.geoJsonData) {
-                        this.renderGeoJson();
-                    }
+                    this.renderTerritoryMap();
                 },
 
                 destroyAll() {
@@ -648,125 +635,151 @@
                 },
 
                 initMap() {
-                    const mapContainer = document.getElementById('mapChefferies');
+                    const mapContainer = document.getElementById('mapTerritories');
                     if (!mapContainer) return;
-                    
-                    // Centre RDC
-                    this.map = L.map('mapChefferies').setView([-4.0383, 21.7587], 5);
 
-                    // Fond de carte sombre/neutre pour faire ressortir les couleurs (style ehtools)
+                    if (this.map) {
+                        this.map.remove();
+                    }
+
+                    this.map = L.map('mapTerritories', {
+                        zoomControl: true,
+                        scrollWheelZoom: true,
+                    }).setView([-4.0383, 21.7587], 5);
+
                     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
                         subdomains: 'abcd',
-                        maxZoom: 20
+                        maxZoom: 20,
                     }).addTo(this.map);
 
-                    // Chargement du GeoJSON
-                    fetch('/cod_admin3_em.geojson')
-                        .then(res => res.json())
-                        .then(data => {
-                            this.geoJsonData = data;
-                            this.renderGeoJson();
-                        });
+                    this.bubblesLayer = L.layerGroup().addTo(this.map);
+                    this.renderTerritoryMap();
+                    setTimeout(() => this.map.invalidateSize(), 100);
                 },
 
-                getColor(d) {
-                    return d > 100 ? '#67000d' :
-                           d > 50  ? '#cb181d' :
-                           d > 20  ? '#fb6a4a' :
-                           d > 0   ? '#fcae91' :
-                                     '#f9fafb';
+                getTerritoryColor(count, max) {
+                    if (!count) return '#cbd5e1';
+                    const ratio = max > 0 ? count / max : 0;
+
+                    if (ratio >= 0.66) return '#dc2626';
+                    if (ratio >= 0.33) return '#f59e0b';
+
+                    return '#2563eb';
                 },
 
-                renderGeoJson() {
-                    if (!this.map || !this.geoJsonData) return;
-                    if (this.geoJsonLayer) this.map.removeLayer(this.geoJsonLayer);
+                getTerritoryRadius(count, max) {
+                    if (!count) return 8;
 
-                    const chefferieData = this.payload.byChefferie || {};
-                    const totalIncidents = Object.values(chefferieData).reduce((a, b) => a + b, 0);
+                    const ratio = max > 0 ? Math.sqrt(count / max) : 0;
 
-                    // Filtrer par province/territoire
-                    let filteredFeatures = this.geoJsonData.features;
-                    if (this.payload.scope.code_province) {
-                        filteredFeatures = filteredFeatures.filter(f => 
-                            f.properties.adm1_pcode === this.payload.scope.code_province
-                        );
+                    return Math.max(10, Math.round(10 + (ratio * 28)));
+                },
+
+                renderTerritoryMap() {
+                    if (!this.map || !this.bubblesLayer) return;
+
+                    const territoryMap = this.payload.territoryMap || {};
+                    const points = territoryMap.points || [];
+                    const max = territoryMap.max || 0;
+                    const emptyEl = document.getElementById('territoryMapEmpty');
+
+                    this.bubblesLayer.clearLayers();
+
+                    if (emptyEl) {
+                        emptyEl.classList.toggle('hidden', points.length > 0);
                     }
-                    if (this.payload.scope.code_territoire) {
-                        filteredFeatures = filteredFeatures.filter(f => 
-                            f.properties.adm2_pcode === this.payload.scope.code_territoire
-                        );
-                    }
 
-                    const geoDataToRender = {
-                        ...this.geoJsonData,
-                        features: filteredFeatures
-                    };
-
-                    this.geoJsonLayer = L.geoJSON(geoDataToRender, {
-                        style: (feature) => {
-                            const name = feature.properties.adm3_name ? feature.properties.adm3_name.toLowerCase().trim() : '';
-                            const count = chefferieData[name] || 0;
-                            return {
-                                fillColor: this.getColor(count),
-                                weight: 1.2,
-                                opacity: 1,
-                                color: '#60A5FA', // Bleu léger modèle ONU pour les contours
-                                fillOpacity: 0.85
-                            };
-                        },
-                        onEachFeature: (feature, layer) => {
-                            const name = feature.properties.adm3_name || 'Inconnu';
-                            const count = chefferieData[name.toLowerCase().trim()] || 0;
-
-                            layer.on({
-                                mouseover: (e) => {
-                                    const l = e.target;
-                                    l.setStyle({
-                                        weight: 2,
-                                        color: '#0B4F8A',
-                                        fillOpacity: 1
-                                    });
-                                    l.bringToFront();
-                                },
-                                mouseout: (e) => {
-                                    this.geoJsonLayer.resetStyle(e.target);
-                                },
-                                click: () => {
-                                    this.showChefferiePanel(name, count, totalIncidents);
-                                }
-                            });
-
-                            const tooltipContent = `<div class="p-1 font-bold text-gray-800">${name} : ${count} incidents</div>`;
-                            layer.bindTooltip(tooltipContent, { sticky: true, className: 'shadow-lg border-0 rounded-lg' });
-                        }
-                    }).addTo(this.map);
-
-                    if (!this.payload.scope.isSuper && filteredFeatures.length > 0) {
-                        this.map.fitBounds(this.geoJsonLayer.getBounds(), { padding: [20, 20] });
-                    } else if (this.payload.scope.isSuper) {
+                    if (!points.length) {
                         this.map.setView([-4.0383, 21.7587], 5);
+                        return;
+                    }
+
+                    const bounds = [];
+
+                    points.forEach((territory) => {
+                        const lat = Number(territory.latitude);
+                        const lon = Number(territory.longitude);
+
+                        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+                        const count = Number(territory.total || 0);
+                        const color = this.getTerritoryColor(count, max);
+                        const marker = L.circleMarker([lat, lon], {
+                            radius: this.getTerritoryRadius(count, max),
+                            color: '#ffffff',
+                            weight: 2,
+                            fillColor: color,
+                            fillOpacity: 0.76,
+                            opacity: 1,
+                        }).addTo(this.bubblesLayer);
+
+                        marker.on({
+                            mouseover: (event) => {
+                                event.target.setStyle({
+                                    fillOpacity: 0.95,
+                                    weight: 3,
+                                });
+                                event.target.bringToFront();
+                            },
+                            mouseout: (event) => {
+                                event.target.setStyle({
+                                    fillOpacity: 0.76,
+                                    weight: 2,
+                                });
+                            },
+                        });
+
+                        marker.bindTooltip(this.territoryTooltip(territory), {
+                            sticky: true,
+                            className: 'territory-map-tooltip',
+                            opacity: 1,
+                        });
+
+                        bounds.push([lat, lon]);
+                    });
+
+                    if (bounds.length === 1) {
+                        this.map.setView(bounds[0], 8);
+                    } else if (bounds.length > 1) {
+                        this.map.fitBounds(bounds, { padding: [48, 48], maxZoom: 8 });
                     }
                 },
 
-                showChefferiePanel(name, count, total) {
-                    const panel = document.getElementById('mapInfoPanel');
-                    const nameEl = document.getElementById('panelChefferieName');
-                    const countEl = document.getElementById('panelIncidentCount');
-                    const barEl = document.getElementById('panelPercentBar');
-                    const textEl = document.getElementById('panelPercentText');
+                territoryTooltip(territory) {
+                    const events = (territory.events || [])
+                        .map(event => `
+                            <div class="flex items-center justify-between gap-4">
+                                <span class="text-gray-600">${this.escapeHtml(event.label)}</span>
+                                <span class="font-semibold text-gray-900">${event.total}</span>
+                            </div>
+                        `)
+                        .join('');
 
-                    if (!panel) return;
-
-                    nameEl.innerText = name;
-                    countEl.innerText = count;
-                    
-                    const percent = total > 0 ? Math.round((count / total) * 100) : 0;
-                    barEl.style.width = percent + '%';
-                    textEl.innerText = percent + '% du total affiché';
-
-                    panel.classList.remove('translate-x-80');
+                    return `
+                        <div class="min-w-[220px] p-2">
+                            <div class="font-bold text-gray-950">${this.escapeHtml(territory.nom_territoire)}</div>
+                            <div class="mt-1 text-xs text-gray-500">${this.escapeHtml(territory.nom_province || '')}</div>
+                            <div class="mt-3 flex items-baseline justify-between border-t border-gray-100 pt-2">
+                                <span class="text-xs uppercase tracking-wide text-gray-500">Total incidents</span>
+                                <span class="text-xl font-black text-gray-950">${territory.total}</span>
+                            </div>
+                            <div class="mt-2 space-y-1 border-t border-gray-100 pt-2">
+                                ${events || '<div class="text-gray-500">Aucun type renseigne</div>'}
+                            </div>
+                        </div>
+                    `;
                 },
+
+                escapeHtml(value) {
+                    return String(value ?? '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                },
+
             };
         }
     </script>

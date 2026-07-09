@@ -15,7 +15,12 @@ class Territoire extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['code_territoire', 'nom_territoire', 'code_province'];
+    protected $fillable = ['code_territoire', 'nom_territoire', 'code_province', 'latitude', 'longitude'];
+
+    protected $casts = [
+        'latitude' => 'decimal:6',
+        'longitude' => 'decimal:6',
+    ];
 
     public function province(): BelongsTo
     {

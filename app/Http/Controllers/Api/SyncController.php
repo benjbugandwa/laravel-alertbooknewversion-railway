@@ -21,7 +21,7 @@ class SyncController extends Controller
     {
         return response()->json([
             'provinces' => Province::select('code_province', 'nom_province')->get(),
-            'territoires' => Territoire::select('code_territoire', 'nom_territoire', 'code_province')->get(),
+            'territoires' => Territoire::select('code_territoire', 'nom_territoire', 'code_province', 'latitude', 'longitude')->get(),
             'chefferies' => Chefferie::select('code_chefferie', 'nom_chefferie', 'code_territoire')->get(),
             'groupements' => Groupement::select('code_groupement', 'nom_groupement', 'code_chefferie')->get(),
             'zonesantes' => ZoneSante::select('code_zonesante', 'nom_zonesante', 'code_territoire')->get(),

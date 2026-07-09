@@ -13,7 +13,7 @@ use Livewire\Component;
 
 class Dashboard extends Component
 {
-    private const INCIDENT_CACHE_VERSION = 'validated_v2';
+    private const INCIDENT_CACHE_VERSION = 'validated_v3';
 
     public int $days = 30; // période pour l’évolution (30 derniers jours)
 
@@ -172,17 +172,73 @@ class Dashboard extends Component
             return $q->groupBy('d')->orderBy('d')->get();
         });
 
-        // --------- Incidents par chefferie pour la carte (Cache 15 min) ----------
-        $cacheKeyChefferie = self::INCIDENT_CACHE_VERSION.'_dashboard_inc_chef_'.($provinceScope ?: 'all').'_terr_'.($territoireScope ?: 'all');
-        $byChefferie = Cache::remember($cacheKeyChefferie, now()->addMinutes(15), function () use ($provinceScope, $territoireScope) {
+        // --------- Incidents par territoire pour la carte (Cache 15 min) ----------
+        $cacheKeyTerritoryMap = self::INCIDENT_CACHE_VERSION.'_dashboard_inc_territory_map_'.($provinceScope ?: 'all').'_terr_'.($territoireScope ?: 'all').'_days_'.$days;
+        $territoryMapRows = Cache::remember($cacheKeyTerritoryMap, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
             $q = DB::table('incidents')
-                ->leftJoin('chefferies', 'incidents.code_chefferie', '=', 'chefferies.code_chefferie')
-                ->selectRaw('chefferies.nom_chefferie as label, COUNT(*) as total')
-                ->whereNotNull('chefferies.nom_chefferie');
+                ->join('territoires', 'incidents.code_territoire', '=', 'territoires.code_territoire')
+                ->leftJoin('provinces', 'territoires.code_province', '=', 'provinces.code_province')
+                ->leftJoin('evenements', 'incidents.code_evenement', '=', 'evenements.code_evenement')
+                ->whereNotNull('territoires.latitude')
+                ->whereNotNull('territoires.longitude')
+                ->whereNotNull('incidents.date_incident')
+                ->where('incidents.date_incident', '>=', now()->subDays($days)->startOfDay())
+                ->select([
+                    'territoires.code_territoire',
+                    'territoires.nom_territoire',
+                    'territoires.latitude',
+                    'territoires.longitude',
+                    'provinces.nom_province',
+                ])
+                ->selectRaw("COALESCE(evenements.nom_evenement, incidents.code_evenement, 'Non renseigné') as event_label, COUNT(*) as total");
             self::applyValidatedIncidentScope($q, $provinceScope, $territoireScope);
 
-            return $q->groupBy('label')->get();
+            return $q
+                ->groupBy(
+                    'territoires.code_territoire',
+                    'territoires.nom_territoire',
+                    'territoires.latitude',
+                    'territoires.longitude',
+                    'provinces.nom_province',
+                    'evenements.nom_evenement',
+                    'incidents.code_evenement'
+                )
+                ->orderBy('territoires.nom_territoire')
+                ->orderByDesc('total')
+                ->get();
         });
+
+        $territoryPoints = $territoryMapRows
+            ->groupBy('code_territoire')
+            ->map(function ($rows) {
+                $first = $rows->first();
+
+                return [
+                    'code_territoire' => (string) $first->code_territoire,
+                    'nom_territoire' => (string) $first->nom_territoire,
+                    'nom_province' => (string) ($first->nom_province ?? ''),
+                    'latitude' => (float) $first->latitude,
+                    'longitude' => (float) $first->longitude,
+                    'total' => (int) $rows->sum('total'),
+                    'events' => $rows
+                        ->sortByDesc('total')
+                        ->map(fn ($row) => [
+                            'label' => (string) $row->event_label,
+                            'total' => (int) $row->total,
+                        ])
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->sortByDesc('total')
+            ->values();
+
+        $territoryMap = [
+            'points' => $territoryPoints->all(),
+            'total' => (int) $territoryPoints->sum('total'),
+            'max' => (int) ($territoryPoints->max('total') ?? 0),
+            'period_days' => $days,
+        ];
 
         // Préparer datasets pour Chart.js
         $chart = [
@@ -212,9 +268,7 @@ class Dashboard extends Component
                 'labels' => $evolution->pluck('d')->values(),
                 'data' => $evolution->pluck('total')->map(fn ($total) => (int) $total)->values(),
             ],
-            'byChefferie' => $byChefferie->mapWithKeys(function ($item) {
-                return [strtolower(trim($item->label)) => (int) $item->total];
-            })->toArray(),
+            'territoryMap' => $territoryMap,
             'scope' => [
                 'isSuper' => $isSuper,
                 'code_province' => $provinceScope,
