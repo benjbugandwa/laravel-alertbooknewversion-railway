@@ -197,6 +197,16 @@
             border-radius: 8px;
             background: #f8fafc;
         }
+
+        .warning {
+            margin: 0 0 10px 0;
+            padding: 8px 10px;
+            border: 1px solid #fed7aa;
+            border-radius: 7px;
+            color: #9a3412;
+            background: #fff7ed;
+            font-size: 9px;
+        }
     </style>
 </head>
 <body>
@@ -241,6 +251,12 @@
             </td>
         </tr>
     </table>
+
+    @if(!empty($report['warnings']))
+        <div class="warning">
+            Certaines sections n'ont pas pu etre calculees automatiquement: {{ implode(', ', $report['warnings']) }}.
+        </div>
+    @endif
 
     <table class="two-col">
         <tr>

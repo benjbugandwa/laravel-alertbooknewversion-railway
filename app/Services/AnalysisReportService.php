@@ -11,7 +11,9 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class AnalysisReportService
 {
@@ -42,11 +44,19 @@ class AnalysisReportService
             ? Territoire::query()->where('code_territoire', $territoireCode)->first()
             : null;
 
-        $hotZones = $this->hotZones($from, $to, $provinceCode, $territoireCode);
-        $hotTerritories = $this->hotTerritories($from, $to, $provinceCode, $territoireCode);
-        $violenceByZone = $this->violenceByZone($from, $to, $provinceCode, $territoireCode);
-        $movements = $this->movements($from, $to, $provinceCode, $territoireCode);
-        $eventTypes = $this->eventTypes($from, $to, $provinceCode, $territoireCode);
+        $warnings = [];
+        $context = [
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'province' => $provinceCode,
+            'territoire' => $territoireCode,
+        ];
+
+        $hotZones = $this->section('zones chaudes', fn () => $this->hotZones($from, $to, $provinceCode, $territoireCode), $context, $warnings);
+        $hotTerritories = $this->section('carte des territoires', fn () => $this->hotTerritories($from, $to, $provinceCode, $territoireCode), $context, $warnings);
+        $violenceByZone = $this->section('violences et victimes', fn () => $this->violenceByZone($from, $to, $provinceCode, $territoireCode), $context, $warnings);
+        $movements = $this->section('mouvements des populations', fn () => $this->movements($from, $to, $provinceCode, $territoireCode), $context, $warnings);
+        $eventTypes = $this->section('types evenements', fn () => $this->eventTypes($from, $to, $provinceCode, $territoireCode), $context, $warnings);
 
         return [
             'filters' => [
@@ -70,6 +80,7 @@ class AnalysisReportService
             'violence_by_zone' => $violenceByZone->all(),
             'movements' => $movements->all(),
             'event_types' => $eventTypes->all(),
+            'warnings' => $warnings,
         ];
     }
 
@@ -154,7 +165,7 @@ class AnalysisReportService
         $zoneProv = "COALESCE(zone_prov.nom_zonesante, mouvements.code_zonesante_prov, '-')";
         $territoireAccl = "COALESCE(terr_accl.nom_territoire, mouvements.code_territoire_accl, '-')";
         $zoneAccl = "COALESCE(zone_accl.nom_zonesante, mouvements.code_zonesante_accl, '-')";
-        $typeMouvement = "COALESCE(mouvements.type_mouvement, '-')";
+        $typeMouvement = "COALESCE({$this->textExpression('mouvements.type_mouvement')}, '-')";
 
         $query = DB::table('mouvements')
             ->join('incidents', 'mouvements.incident_id', '=', 'incidents.id')
@@ -212,6 +223,31 @@ class AnalysisReportService
         $this->applyIncidentScope($query, $from, $to, $provinceCode, $territoireCode);
 
         return $query;
+    }
+
+    private function section(string $label, callable $callback, array $context, array &$warnings): Collection
+    {
+        try {
+            $result = $callback();
+
+            return $result instanceof Collection ? $result : collect($result);
+        } catch (Throwable $exception) {
+            $warnings[] = $label;
+
+            Log::error('Analysis report section failed', [
+                'section' => $label,
+                'filters' => $context,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return collect();
+        }
+    }
+
+    private function textExpression(string $column): string
+    {
+        return DB::getDriverName() === 'pgsql' ? $column.'::text' : $column;
     }
 
     private function applyIncidentScope(Builder $query, CarbonImmutable $from, CarbonImmutable $to, ?string $provinceCode, ?string $territoireCode): void
