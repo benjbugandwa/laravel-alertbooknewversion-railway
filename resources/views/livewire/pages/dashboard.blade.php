@@ -305,6 +305,8 @@
                     province: null,
                 },
                 map: null,
+                territoryBoundaryLayer: null,
+                territoryGeoJsonData: null,
                 bubblesLayer: null,
 
                 init() {
@@ -333,6 +335,7 @@
                     this.payload = newPayload;
                     this.destroyAll();
                     this.buildAll(this.payload);
+                    this.renderTerritoryBoundaryLayer();
                     this.renderTerritoryMap();
                 },
 
@@ -654,6 +657,16 @@
                     }).addTo(this.map);
 
                     this.bubblesLayer = L.layerGroup().addTo(this.map);
+
+                    fetch('/cod_admin2_em.geojson')
+                        .then(response => response.json())
+                        .then(data => {
+                            this.territoryGeoJsonData = data;
+                            this.renderTerritoryBoundaryLayer();
+                            this.renderTerritoryMap();
+                        })
+                        .catch(error => console.warn('Impossible de charger les limites des territoires.', error));
+
                     this.renderTerritoryMap();
                     setTimeout(() => this.map.invalidateSize(), 100);
                 },
@@ -674,6 +687,73 @@
                     const ratio = max > 0 ? Math.sqrt(count / max) : 0;
 
                     return Math.max(10, Math.round(10 + (ratio * 28)));
+                },
+
+                renderTerritoryBoundaryLayer() {
+                    if (!this.map || !this.territoryGeoJsonData) return;
+
+                    if (this.territoryBoundaryLayer) {
+                        this.map.removeLayer(this.territoryBoundaryLayer);
+                    }
+
+                    const territoryMap = this.payload.territoryMap || {};
+                    const pointCodes = new Set((territoryMap.points || []).map(territory => territory.code_territoire));
+                    const scope = this.payload.scope || {};
+                    const features = (this.territoryGeoJsonData.features || []).filter(feature => {
+                        const properties = feature.properties || {};
+
+                        if (scope.code_territoire) {
+                            return properties.adm2_pcode === scope.code_territoire;
+                        }
+
+                        if (scope.code_province) {
+                            return properties.adm1_pcode === scope.code_province;
+                        }
+
+                        return true;
+                    });
+
+                    this.territoryBoundaryLayer = L.geoJSON({
+                        ...this.territoryGeoJsonData,
+                        features,
+                    }, {
+                        pane: 'overlayPane',
+                        style: (feature) => {
+                            const code = feature.properties?.adm2_pcode;
+                            const isHighlighted = pointCodes.has(code);
+
+                            return {
+                                color: isHighlighted ? '#60a5fa' : '#cbd5e1',
+                                weight: isHighlighted ? 3.5 : 1,
+                                opacity: isHighlighted ? 0.95 : 0.45,
+                                fillColor: isHighlighted ? '#dbeafe' : '#ffffff',
+                                fillOpacity: isHighlighted ? 0.16 : 0.02,
+                                dashArray: isHighlighted ? null : '4 4',
+                            };
+                        },
+                        onEachFeature: (feature, layer) => {
+                            const properties = feature.properties || {};
+                            const code = properties.adm2_pcode;
+
+                            layer.on({
+                                mouseover: (event) => {
+                                    event.target.setStyle({
+                                        color: pointCodes.has(code) ? '#0284c7' : '#93c5fd',
+                                        weight: pointCodes.has(code) ? 5 : 2,
+                                        opacity: 1,
+                                        fillOpacity: pointCodes.has(code) ? 0.22 : 0.06,
+                                    });
+                                },
+                                mouseout: (event) => {
+                                    this.territoryBoundaryLayer.resetStyle(event.target);
+                                },
+                            });
+                        },
+                    }).addTo(this.map);
+
+                    if (this.bubblesLayer) {
+                        this.bubblesLayer.eachLayer(layer => layer.bringToFront?.());
+                    }
                 },
 
                 renderTerritoryMap() {
