@@ -17,26 +17,23 @@ use Throwable;
 
 class AnalysisReportService
 {
-    private const FEMALE_TOTAL_SQL = '
-        COALESCE(victimes.nbre_femme_0a4ans, 0)
-        + COALESCE(victimes.nbre_femme_5a11ans, 0)
-        + COALESCE(victimes.nbre_femme_12a17ans, 0)
-        + COALESCE(victimes.nbre_femme_18a59ans, 0)
-        + COALESCE(victimes.nbre_femme_6Oansouplus, 0)
-    ';
+    private const FEMALE_VICTIM_COLUMNS = [
+        'nbre_femme_0a4ans',
+        'nbre_femme_5a11ans',
+        'nbre_femme_12a17ans',
+        'nbre_femme_18a59ans',
+        'nbre_femme_6Oansouplus',
+        'nbre_femme_60ansouplus',
+    ];
 
-    private const MALE_TOTAL_SQL = '
-        COALESCE(victimes.nbre_homme_0a4ans, 0)
-        + COALESCE(victimes.nbre_homme_5a11ans, 0)
-        + COALESCE(victimes.nbre_homme_12a17ans, 0)
-        + COALESCE(victimes.nbre_homme_18a59ans, 0)
-        + COALESCE(victimes.nbre_homme_6Oansouplus, 0)
-    ';
-
-    private const VICTIM_TOTAL_SQL = '
-        ('.self::FEMALE_TOTAL_SQL.')
-        + ('.self::MALE_TOTAL_SQL.')
-    ';
+    private const MALE_VICTIM_COLUMNS = [
+        'nbre_homme_0a4ans',
+        'nbre_homme_5a11ans',
+        'nbre_homme_12a17ans',
+        'nbre_homme_18a59ans',
+        'nbre_homme_6Oansouplus',
+        'nbre_homme_60ansouplus',
+    ];
 
     public function build(array $filters): array
     {
@@ -138,8 +135,15 @@ class AnalysisReportService
 
     private function violenceByZone(CarbonImmutable $from, CarbonImmutable $to, ?string $provinceCode, ?string $territoireCode): Collection
     {
+        if (! Schema::hasTable('victimes')) {
+            return collect();
+        }
+
         $zoneLabel = "COALESCE(zonesantes.nom_zonesante, incidents.code_zonesante, 'Non renseignee')";
         $violenceLabel = "COALESCE(violences.violence_name, 'Non renseignee')";
+        $maleTotalSql = $this->victimTotalExpression(self::MALE_VICTIM_COLUMNS);
+        $femaleTotalSql = $this->victimTotalExpression(self::FEMALE_VICTIM_COLUMNS);
+        $victimTotalSql = "({$maleTotalSql}) + ({$femaleTotalSql})";
 
         $query = DB::table('victimes')
             ->join('incidents', 'victimes.incident_id', '=', 'incidents.id')
@@ -147,9 +151,9 @@ class AnalysisReportService
             ->leftJoin('zonesantes', 'incidents.code_zonesante', '=', 'zonesantes.code_zonesante')
             ->selectRaw($zoneLabel.' as zone_label')
             ->selectRaw($violenceLabel.' as violence_label')
-            ->selectRaw('SUM('.self::MALE_TOTAL_SQL.') as male_victims')
-            ->selectRaw('SUM('.self::FEMALE_TOTAL_SQL.') as female_victims')
-            ->selectRaw('SUM('.self::VICTIM_TOTAL_SQL.') as total_victims');
+            ->selectRaw('SUM('.$maleTotalSql.') as male_victims')
+            ->selectRaw('SUM('.$femaleTotalSql.') as female_victims')
+            ->selectRaw('SUM('.$victimTotalSql.') as total_victims');
 
         $this->applyIncidentScope($query, $from, $to, $provinceCode, $territoireCode);
 
@@ -275,6 +279,33 @@ class AnalysisReportService
     private function textExpression(string $column): string
     {
         return DB::getDriverName() === 'pgsql' ? $column.'::text' : $column;
+    }
+
+    private function victimTotalExpression(array $candidateColumns): string
+    {
+        $columns = collect($candidateColumns);
+
+        $availableColumns = collect($candidateColumns)
+            ->unique()
+            ->filter(function (string $column) use ($columns): bool {
+                if (
+                    str_contains($column, '_60ansouplus')
+                    && $columns->contains(str_replace('_60ansouplus', '_6Oansouplus', $column))
+                    && Schema::hasColumn('victimes', str_replace('_60ansouplus', '_6Oansouplus', $column))
+                ) {
+                    return false;
+                }
+
+                return Schema::hasColumn('victimes', $column);
+            })
+            ->map(fn (string $column): string => 'COALESCE(victimes.'.$column.', 0)')
+            ->values();
+
+        if ($availableColumns->isEmpty()) {
+            return '0';
+        }
+
+        return $availableColumns->implode(' + ');
     }
 
     private function violenceColumns(Collection $zoneRows): Collection
