@@ -139,21 +139,47 @@ class AnalysisReportService
             return collect();
         }
 
+        $incidentColumn = $this->firstExistingColumn('victimes', ['incident_id', 'id_incident', 'alerte_id']);
+
+        if ($incidentColumn === null) {
+            return collect();
+        }
+
         $zoneLabel = "COALESCE(zonesantes.nom_zonesante, incidents.code_zonesante, 'Non renseignee')";
-        $violenceLabel = "COALESCE(violences.violence_name, 'Non renseignee')";
+        $violenceColumn = $this->firstExistingColumn('victimes', ['violence_id', 'id_violence']);
+        $canJoinViolences = $violenceColumn !== null
+            && Schema::hasTable('violences')
+            && Schema::hasColumn('violences', 'id')
+            && Schema::hasColumn('violences', 'violence_name');
+        $violenceLabel = $canJoinViolences
+            ? "COALESCE(violences.violence_name, {$this->textExpression('victimes.'.$violenceColumn)}, 'Non renseignee')"
+            : ($violenceColumn ? "COALESCE({$this->textExpression('victimes.'.$violenceColumn)}, 'Non renseignee')" : "'Non renseignee'");
         $maleTotalSql = $this->victimTotalExpression(self::MALE_VICTIM_COLUMNS);
         $femaleTotalSql = $this->victimTotalExpression(self::FEMALE_VICTIM_COLUMNS);
         $victimTotalSql = "({$maleTotalSql}) + ({$femaleTotalSql})";
 
         $query = DB::table('victimes')
-            ->join('incidents', 'victimes.incident_id', '=', 'incidents.id')
-            ->leftJoin('violences', 'victimes.violence_id', '=', 'violences.id')
+            ->join(
+                'incidents',
+                DB::raw($this->textExpression('victimes.'.$incidentColumn)),
+                '=',
+                DB::raw($this->textExpression('incidents.id'))
+            )
             ->leftJoin('zonesantes', 'incidents.code_zonesante', '=', 'zonesantes.code_zonesante')
             ->selectRaw($zoneLabel.' as zone_label')
             ->selectRaw($violenceLabel.' as violence_label')
             ->selectRaw('SUM('.$maleTotalSql.') as male_victims')
             ->selectRaw('SUM('.$femaleTotalSql.') as female_victims')
             ->selectRaw('SUM('.$victimTotalSql.') as total_victims');
+
+        if ($canJoinViolences) {
+            $query->leftJoin(
+                'violences',
+                DB::raw($this->textExpression('victimes.'.$violenceColumn)),
+                '=',
+                DB::raw($this->textExpression('violences.id'))
+            );
+        }
 
         $this->applyIncidentScope($query, $from, $to, $provinceCode, $territoireCode);
 
@@ -279,6 +305,17 @@ class AnalysisReportService
     private function textExpression(string $column): string
     {
         return DB::getDriverName() === 'pgsql' ? $column.'::text' : $column;
+    }
+
+    private function firstExistingColumn(string $table, array $columns): ?string
+    {
+        foreach ($columns as $column) {
+            if (Schema::hasColumn($table, $column)) {
+                return $column;
+            }
+        }
+
+        return null;
     }
 
     private function victimTotalExpression(array $candidateColumns): string
