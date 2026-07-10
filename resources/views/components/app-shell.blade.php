@@ -2,6 +2,56 @@
     'title' => 'AlertBook',
 ])
 
+@php
+    $user = auth()->user();
+    $canSeeMovements = ! $user?->hasRole('moniteur');
+    $isSuperadmin = (bool) $user?->hasRole('superadmin');
+
+    $navigationGroups = [
+        [
+            'label' => 'Gestion des alertes',
+            'items' => [
+                ['label' => 'Dashboard', 'href' => route('dashboard'), 'active' => 'dashboard', 'icon' => 'layout-dashboard'],
+                ['label' => 'Alertes', 'href' => route('incidents.index'), 'active' => 'incidents.*', 'icon' => 'alert-triangle'],
+                ['label' => 'Réponses aux incidents', 'href' => route('reponses.index'), 'active' => 'reponses.*', 'icon' => 'reply'],
+                ['label' => 'Victimes des violations', 'href' => route('victimes.index'), 'active' => 'victimes.*', 'icon' => 'shield-alert'],
+                ['label' => 'Déplacements', 'href' => route('mouvements.standalone'), 'active' => 'mouvements.*', 'icon' => 'route', 'visible' => $canSeeMovements],
+            ],
+        ],
+        [
+            'label' => 'Administration',
+            'items' => [
+                ['label' => 'Utilisateurs', 'href' => route('users.index'), 'active' => 'users.*', 'icon' => 'users'],
+                ['label' => 'Assignations moniteurs', 'href' => route('monitor-assignments.index'), 'active' => 'monitor-assignments.*', 'icon' => 'user-check', 'visible' => $isSuperadmin],
+                ['label' => 'Structures de prise en charge', 'href' => route('service-providers.index'), 'active' => 'service-providers.*', 'icon' => 'hospital'],
+                ['label' => 'Organisations', 'href' => route('organisations.index'), 'active' => 'organisations.*', 'icon' => 'building-2'],
+                ['label' => 'Auteurs présumés', 'href' => route('auteurs.index'), 'active' => 'auteurs.*', 'icon' => 'user-cog', 'visible' => $isSuperadmin],
+                ['label' => 'Performance superviseurs', 'href' => route('supervision.performance'), 'active' => 'supervision.performance', 'icon' => 'chart-line'],
+            ],
+        ],
+        [
+            'label' => 'Documents',
+            'items' => [
+                ['label' => 'Documents', 'href' => route('documents.index'), 'active' => 'documents.*', 'icon' => 'folder-open'],
+            ],
+        ],
+        [
+            'label' => 'Export et Analyse',
+            'items' => [
+                ['label' => 'Exporter', 'href' => route('exports.index'), 'active' => 'exports.*', 'icon' => 'file-spreadsheet'],
+                ['label' => 'Analyses', 'href' => route('analyses.index'), 'active' => 'analyses.*', 'icon' => 'chart-no-axes-combined'],
+            ],
+        ],
+    ];
+
+    $profileGroup = [
+        'label' => 'Mon profil',
+        'items' => [
+            ['label' => 'Mon profil', 'href' => route('profile'), 'active' => 'profile', 'icon' => 'user-pen'],
+        ],
+    ];
+@endphp
+
 <div x-data="{
     sidebarOpen: false,
     close() { this.sidebarOpen = false },
@@ -10,14 +60,12 @@
 }" x-on:keydown.escape.window="close()" class="min-h-screen bg-gray-50 text-gray-900">
     <!-- Topbar -->
     <header class="sticky top-0 z-40 bg-onu text-white border-b border-white/10">
-
         <div class="h-14 px-4 lg:px-6 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <!-- Burger (mobile) -->
                 <button type="button"
                     class="lg:hidden inline-flex items-center justify-center h-10 w-10 rounded-lg hover:bg-gray-100"
                     @click="toggle()" aria-label="Ouvrir le menu">
-                    <!-- Icon burger -->
                     <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
@@ -38,7 +86,6 @@
                     {{ auth()->user()->name ?? 'Invité' }}
                 </div>
 
-                <!-- Petit avatar placeholder -->
                 <div
                     class="h-9 w-9 rounded-full bg-gray-200 grid place-items-center text-xs font-semibold text-gray-700">
                     {{ strtoupper(substr(auth()->user()->name ?? 'GB', 0, 2)) }}
@@ -57,81 +104,47 @@
     <div class="flex">
         <!-- Sidebar desktop -->
         <aside class="hidden lg:block w-64 bg-white border-r min-h-[calc(100vh-3.5rem)]">
-            <div class="p-4">
+            <div class="h-[calc(100vh-3.5rem)] p-4 flex flex-col">
                 <div class="text-xs uppercase tracking-wide text-gray-500 mb-2">Navigation</div>
-                <nav class="space-y-1">
 
-                    <x-nav-link href="{{ route('dashboard') }}" :active="request()->routeIs('dashboard')"
-                        icon="layout-dashboard">Dashboard</x-nav-link>
+                <nav class="flex-1 overflow-y-auto pr-1 space-y-4">
+                    @foreach ($navigationGroups as $group)
+                        @php
+                            $items = collect($group['items'])->filter(fn ($item) => $item['visible'] ?? true);
+                        @endphp
 
-                    <x-nav-link href="{{ route('documents.index') }}" :active="request()->routeIs('documents.*')"
-                        icon="folder">Documents</x-nav-link>
-
-                    <x-nav-link href="{{ route('incidents.index') }}" :active="request()->routeIs('incidents.*')"
-                        icon="alert-triangle">Alertes</x-nav-link>
-
-                    <x-nav-link href="{{ route('exports.index') }}" :active="request()->routeIs('exports.*')"
-                        icon="file-spreadsheet">Exporter</x-nav-link>
-
-                    <x-nav-link href="{{ route('analyses.index') }}" :active="request()->routeIs('analyses.*')"
-                        icon="chart-no-axes-combined">Analyses</x-nav-link>
-
-                    @if(!auth()->user()->hasRole('moniteur'))
-                        <x-nav-link href="{{ route('mouvements.standalone') }}" :active="request()->routeIs('mouvements.*')"
-                            icon="truck">Déplacements</x-nav-link>
-                    @endif
-
-                    <x-nav-link href="{{ route('victimes.index') }}" :active="request()->routeIs('victimes.*')" icon="users">
-                        Victimes des violations
-                    </x-nav-link>
-
-                    <x-nav-link href="{{ route('reponses.index') }}" :active="request()->routeIs('reponses.*')" icon="reply">
-                        Réponses aux incidents
-                    </x-nav-link>
-
-
-                    <x-nav-link href="{{ route('service-providers.index') }}" :active="request()->routeIs('providers.*')" icon="building-2">
-                        Structures de prise en charge
-                    </x-nav-link>
-
-
-                    <x-nav-link href="{{ route('organisations.index') }}" :active="request()->routeIs('organisations.*')" icon="building-2">
-                        Organisations
-                    </x-nav-link>
-                    <x-nav-link href="{{ route('users.index') }}" :active="request()->routeIs('users.*')" icon="users">
-                        Utilisateurs
-                    </x-nav-link>
-
-                    @if (auth()->user()->hasRole('superadmin'))
-                        <x-nav-link href="{{ route('monitor-assignments.index') }}" :active="request()->routeIs('monitor-assignments.*')" icon="user-check">
-                            Assignations moniteurs
-                        </x-nav-link>
-                        <x-nav-link href="{{ route('auteurs.index') }}" :active="request()->routeIs('auteurs.*')" icon="user-cog">
-                            Auteurs présumés
-                        </x-nav-link>
-                    @endif
-
-
-
-                    <x-nav-link href="{{ route('supervision.performance') }}" :active="request()->routeIs('supervision.performance')" icon="chart-line">
-                        Performance superviseurs
-                    </x-nav-link>
-
-                    <x-nav-link href="{{ route('profile') }}" :active="request()->routeIs('profile')" icon="user-pen">
-                        Mon profil
-                    </x-nav-link>
-
-                   
+                        @if ($items->isNotEmpty())
+                            <div class="{{ $loop->first ? '' : 'pt-4 border-t border-gray-100' }}">
+                                <div class="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                                    {{ $group['label'] }}
+                                </div>
+                                <div class="space-y-1">
+                                    @foreach ($items as $item)
+                                        <x-nav-link href="{{ $item['href'] }}" :active="request()->routeIs($item['active'])"
+                                            icon="{{ $item['icon'] }}">{{ $item['label'] }}</x-nav-link>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    @endforeach
                 </nav>
+
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <div class="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        {{ $profileGroup['label'] }}
+                    </div>
+                    @foreach ($profileGroup['items'] as $item)
+                        <x-nav-link href="{{ $item['href'] }}" :active="request()->routeIs($item['active'])"
+                            icon="{{ $item['icon'] }}">{{ $item['label'] }}</x-nav-link>
+                    @endforeach
+                </div>
             </div>
         </aside>
 
         <!-- Mobile sidebar (drawer) -->
         <div class="lg:hidden fixed inset-0 z-50" x-show="sidebarOpen" x-cloak>
-            <!-- Backdrop -->
             <div class="absolute inset-0 bg-black/50" @click="close()"></div>
 
-            <!-- Drawer -->
             <aside class="absolute left-0 top-0 h-full w-72 max-w-[85%] bg-white border-r shadow-xl"
                 x-transition:enter="transition ease-out duration-200" x-transition:enter-start="-translate-x-full"
                 x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200"
@@ -148,48 +161,40 @@
                     </button>
                 </div>
 
-                <div class="p-4">
+                <div class="p-4 h-[calc(100%-3.5rem)] flex flex-col">
                     <div class="text-xs uppercase tracking-wide text-gray-500 mb-2">Navigation</div>
-                    <nav class="space-y-1">
-                        <x-nav-link href="{{ route('dashboard') }}" :active="request()->is('/')"
-                            icon="layout-dashboard" @click="close()">Dashboard</x-nav-link>
-                        <x-nav-link href="{{ route('documents.index') }}" :active="false"
-                            icon="folder" @click="close()">Documents</x-nav-link>
-                        <x-nav-link href="{{ route('incidents.index') }}" :active="false"
-                            icon="alert-triangle" @click="close()">Alertes</x-nav-link>
-                        <x-nav-link href="{{ route('exports.index') }}" :active="request()->routeIs('exports.*')"
-                            icon="file-spreadsheet" @click="close()">Exporter</x-nav-link>
-                        <x-nav-link href="{{ route('analyses.index') }}" :active="request()->routeIs('analyses.*')"
-                            icon="chart-no-axes-combined" @click="close()">Analyses</x-nav-link>
 
-                        @if(!auth()->user()->hasRole('moniteur'))
-                            <x-nav-link href="{{ route('mouvements.standalone') }}" :active="false"
-                                icon="truck" @click="close()">Déplacements</x-nav-link>
-                        @endif
-                        <x-nav-link href="{{ route('victimes.index') }}" :active="false"
-                            icon="users" @click="close()">Victimes des violations</x-nav-link>
-                        <x-nav-link href="{{ route('reponses.index') }}" :active="request()->routeIs('reponses.*')"
-                            icon="reply" @click="close()">Réponses aux incidents</x-nav-link>
-                        <x-nav-link href="{{ route('service-providers.index') }}" :active="false"
-                            icon="building-2" @click="close()">Structures</x-nav-link>
-                        <x-nav-link href="{{ route('organisations.index') }}" :active="false"
-                            icon="building-2" @click="close()">Organisations</x-nav-link>
-                        <x-nav-link href="{{ route('users.index') }}" :active="false"
-                            icon="users" @click="close()">Utilisateurs</x-nav-link>
+                    <nav class="flex-1 overflow-y-auto pr-1 space-y-4">
+                        @foreach ($navigationGroups as $group)
+                            @php
+                                $items = collect($group['items'])->filter(fn ($item) => $item['visible'] ?? true);
+                            @endphp
 
-                        @if (auth()->user()->hasRole('superadmin'))
-                            <x-nav-link href="{{ route('monitor-assignments.index') }}" :active="request()->routeIs('monitor-assignments.*')"
-                                icon="user-check" @click="close()">Assignations moniteurs</x-nav-link>
-                            <x-nav-link href="{{ route('auteurs.index') }}" :active="request()->routeIs('auteurs.*')"
-                                icon="user-cog" @click="close()">Auteurs présumés</x-nav-link>
-                        @endif
-                        <x-nav-link href="{{ route('supervision.performance') }}" :active="false"
-                            icon="chart-line" @click="close()">Performance superviseurs</x-nav-link>
-                        <x-nav-link href="{{ route('profile') }}" :active="false" icon="user-pen" @click="close()">Mon
-                            profil</x-nav-link>
-
-
+                            @if ($items->isNotEmpty())
+                                <div class="{{ $loop->first ? '' : 'pt-4 border-t border-gray-100' }}">
+                                    <div class="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                                        {{ $group['label'] }}
+                                    </div>
+                                    <div class="space-y-1">
+                                        @foreach ($items as $item)
+                                            <x-nav-link href="{{ $item['href'] }}" :active="request()->routeIs($item['active'])"
+                                                icon="{{ $item['icon'] }}" @click="close()">{{ $item['label'] }}</x-nav-link>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+                        @endforeach
                     </nav>
+
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <div class="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                            {{ $profileGroup['label'] }}
+                        </div>
+                        @foreach ($profileGroup['items'] as $item)
+                            <x-nav-link href="{{ $item['href'] }}" :active="request()->routeIs($item['active'])"
+                                icon="{{ $item['icon'] }}" @click="close()">{{ $item['label'] }}</x-nav-link>
+                        @endforeach
+                    </div>
 
                     <div class="mt-6 pt-4 border-t">
                         <form method="POST" action="{{ route('logout') }}">
