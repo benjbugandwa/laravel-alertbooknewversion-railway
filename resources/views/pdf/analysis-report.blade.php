@@ -207,6 +207,59 @@
             background: #fff7ed;
             font-size: 9px;
         }
+
+        .matrix-section {
+            page-break-inside: auto;
+        }
+
+        .victim-matrix {
+            font-size: 8.2px;
+        }
+
+        .victim-matrix th,
+        .victim-matrix td {
+            padding: 4px;
+            border-color: #cbd5e1;
+        }
+
+        .victim-matrix th {
+            text-align: center;
+            background: #eaf3fb;
+            color: #123b5d;
+        }
+
+        .victim-matrix .zone-head,
+        .victim-matrix .zone-cell {
+            min-width: 92px;
+            text-align: left;
+        }
+
+        .victim-matrix .violence-head {
+            background: #dbeafe;
+            font-size: 8.5px;
+        }
+
+        .victim-matrix .sub-head {
+            font-size: 7.4px;
+            line-height: 1.15;
+        }
+
+        .victim-matrix .count-cell {
+            text-align: right;
+            min-width: 34px;
+        }
+
+        .victim-matrix .total-cell,
+        .victim-matrix .total-head {
+            text-align: right;
+            font-weight: 800;
+            background: #f1f5f9;
+        }
+
+        .victim-matrix .total-row td {
+            font-weight: 800;
+            background: #eef6ff;
+        }
     </style>
 </head>
 <body>
@@ -318,33 +371,53 @@
         </tr>
     </table>
 
-    <div class="section">
+    <div class="section matrix-section">
         <h2>Violences et nombre de victimes par zone de sante</h2>
-        @if(count($report['violence_by_zone']) > 0)
-            <table>
+        @php
+            $violenceColumns = $report['violence_columns'] ?? [];
+            $violenceRows = $report['violence_by_zone'] ?? [];
+            $matrixTotal = collect($violenceColumns)->sum('total');
+            $displayCount = fn ($value) => (int) $value > 0 ? number_format((int) $value, 0, ',', ' ') : '';
+        @endphp
+        @if(count($violenceRows) > 0 && count($violenceColumns) > 0)
+            <table class="victim-matrix">
                 <thead>
                     <tr>
-                        <th>Zone de sante</th>
-                        <th>Violence</th>
-                        <th class="right">Victimes</th>
-                        <th class="right">%</th>
-                        <th>Poids relatif</th>
+                        <th class="zone-head" rowspan="2">Zone de sante</th>
+                        @foreach($violenceColumns as $violence)
+                            <th class="violence-head" colspan="2">{{ $violence['label'] }}</th>
+                        @endforeach
+                        <th class="total-head" rowspan="2">Total</th>
+                    </tr>
+                    <tr>
+                        @foreach($violenceColumns as $violence)
+                            <th class="sub-head">Victimes hommes</th>
+                            <th class="sub-head">Victimes femmes</th>
+                        @endforeach
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($report['violence_by_zone'] as $row)
+                    @foreach($violenceRows as $row)
                         <tr>
-                            <td>{{ $row['zone_label'] }}</td>
-                            <td>{{ $row['violence_label'] }}</td>
-                            <td class="right">{{ $row['total_victims'] }}</td>
-                            <td class="right">{{ number_format($row['percentage'], 1, ',', ' ') }}%</td>
-                            <td>
-                                <div class="bar bar-blue">
-                                    <span style="width: {{ min(100, max(2, $row['percentage'])) }}%;"></span>
-                                </div>
-                            </td>
+                            <td class="zone-cell">{{ $row['zone_label'] }}</td>
+                            @foreach($violenceColumns as $violence)
+                                @php
+                                    $counts = $row['violences'][$violence['label']] ?? ['male' => 0, 'female' => 0];
+                                @endphp
+                                <td class="count-cell">{{ $displayCount($counts['male']) }}</td>
+                                <td class="count-cell">{{ $displayCount($counts['female']) }}</td>
+                            @endforeach
+                            <td class="total-cell">{{ number_format($row['total_victims'], 0, ',', ' ') }}</td>
                         </tr>
                     @endforeach
+                    <tr class="total-row">
+                        <td>Total</td>
+                        @foreach($violenceColumns as $violence)
+                            <td class="count-cell">{{ $displayCount($violence['male']) }}</td>
+                            <td class="count-cell">{{ $displayCount($violence['female']) }}</td>
+                        @endforeach
+                        <td class="total-cell">{{ number_format($matrixTotal, 0, ',', ' ') }}</td>
+                    </tr>
                 </tbody>
             </table>
         @else

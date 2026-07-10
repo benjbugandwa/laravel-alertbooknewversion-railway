@@ -34,6 +34,9 @@ class AnalysisReportTest extends TestCase
         $this->assertSame(12, $report['summary']['movement_people']);
         $this->assertSame('Zone test', $report['hot_zones'][0]['label']);
         $this->assertSame('Territoire test', $report['hot_territories'][0]['name']);
+        $this->assertSame('Violence test', $report['violence_columns'][0]['label']);
+        $this->assertSame(3, $report['violence_by_zone'][0]['violences']['Violence test']['male']);
+        $this->assertSame(2, $report['violence_by_zone'][0]['violences']['Violence test']['female']);
     }
 
     public function test_analysis_page_generates_download_link_and_validates_dates(): void

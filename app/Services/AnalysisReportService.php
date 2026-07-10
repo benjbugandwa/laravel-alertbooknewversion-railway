@@ -17,17 +17,25 @@ use Throwable;
 
 class AnalysisReportService
 {
-    private const VICTIM_TOTAL_SQL = '
+    private const FEMALE_TOTAL_SQL = '
         COALESCE(victimes.nbre_femme_0a4ans, 0)
         + COALESCE(victimes.nbre_femme_5a11ans, 0)
         + COALESCE(victimes.nbre_femme_12a17ans, 0)
         + COALESCE(victimes.nbre_femme_18a59ans, 0)
         + COALESCE(victimes.nbre_femme_6Oansouplus, 0)
-        + COALESCE(victimes.nbre_homme_0a4ans, 0)
+    ';
+
+    private const MALE_TOTAL_SQL = '
+        COALESCE(victimes.nbre_homme_0a4ans, 0)
         + COALESCE(victimes.nbre_homme_5a11ans, 0)
         + COALESCE(victimes.nbre_homme_12a17ans, 0)
         + COALESCE(victimes.nbre_homme_18a59ans, 0)
         + COALESCE(victimes.nbre_homme_6Oansouplus, 0)
+    ';
+
+    private const VICTIM_TOTAL_SQL = '
+        ('.self::FEMALE_TOTAL_SQL.')
+        + ('.self::MALE_TOTAL_SQL.')
     ';
 
     public function build(array $filters): array
@@ -78,6 +86,7 @@ class AnalysisReportService
             'hot_zones' => $hotZones->all(),
             'hot_territories' => $this->withMapPositions($hotTerritories)->all(),
             'violence_by_zone' => $violenceByZone->all(),
+            'violence_columns' => $this->violenceColumns($violenceByZone)->all(),
             'movements' => $movements->all(),
             'event_types' => $eventTypes->all(),
             'warnings' => $warnings,
@@ -138,25 +147,43 @@ class AnalysisReportService
             ->leftJoin('zonesantes', 'incidents.code_zonesante', '=', 'zonesantes.code_zonesante')
             ->selectRaw($zoneLabel.' as zone_label')
             ->selectRaw($violenceLabel.' as violence_label')
+            ->selectRaw('SUM('.self::MALE_TOTAL_SQL.') as male_victims')
+            ->selectRaw('SUM('.self::FEMALE_TOTAL_SQL.') as female_victims')
             ->selectRaw('SUM('.self::VICTIM_TOTAL_SQL.') as total_victims');
 
         $this->applyIncidentScope($query, $from, $to, $provinceCode, $territoireCode);
 
-        return $this->withPercentages(
-            $query
-                ->groupByRaw($zoneLabel)
-                ->groupByRaw($violenceLabel)
-                ->orderByDesc('total_victims')
-                ->limit(30)
-                ->get()
-                ->map(fn ($row) => (object) [
-                    'label' => $row->zone_label.' / '.$row->violence_label,
-                    'zone_label' => $row->zone_label,
-                    'violence_label' => $row->violence_label,
-                    'total' => (int) $row->total_victims,
-                    'total_victims' => (int) $row->total_victims,
-                ])
-        );
+        $rows = $query
+            ->groupByRaw($zoneLabel)
+            ->groupByRaw($violenceLabel)
+            ->orderByDesc('total_victims')
+            ->get();
+
+        return $rows
+            ->groupBy('zone_label')
+            ->map(function (Collection $zoneRows, string $zoneLabel): array {
+                $violences = $zoneRows
+                    ->mapWithKeys(fn ($row): array => [
+                        (string) $row->violence_label => [
+                            'male' => (int) $row->male_victims,
+                            'female' => (int) $row->female_victims,
+                            'total' => (int) $row->total_victims,
+                        ],
+                    ])
+                    ->all();
+
+                return [
+                    'zone_label' => $zoneLabel,
+                    'violences' => $violences,
+                    'total_male' => (int) $zoneRows->sum('male_victims'),
+                    'total_female' => (int) $zoneRows->sum('female_victims'),
+                    'total' => (int) $zoneRows->sum('total_victims'),
+                    'total_victims' => (int) $zoneRows->sum('total_victims'),
+                ];
+            })
+            ->sortByDesc('total_victims')
+            ->take(20)
+            ->values();
     }
 
     private function movements(CarbonImmutable $from, CarbonImmutable $to, ?string $provinceCode, ?string $territoireCode): Collection
@@ -248,6 +275,28 @@ class AnalysisReportService
     private function textExpression(string $column): string
     {
         return DB::getDriverName() === 'pgsql' ? $column.'::text' : $column;
+    }
+
+    private function violenceColumns(Collection $zoneRows): Collection
+    {
+        return $zoneRows
+            ->flatMap(fn (array $zone): array => collect($zone['violences'])
+                ->map(fn (array $counts, string $label): array => [
+                    'label' => $label,
+                    'male' => $counts['male'],
+                    'female' => $counts['female'],
+                    'total' => $counts['total'],
+                ])
+                ->all())
+            ->groupBy('label')
+            ->map(fn (Collection $rows, string $label): array => [
+                'label' => $label,
+                'male' => (int) $rows->sum('male'),
+                'female' => (int) $rows->sum('female'),
+                'total' => (int) $rows->sum('total'),
+            ])
+            ->sortByDesc('total')
+            ->values();
     }
 
     private function applyIncidentScope(Builder $query, CarbonImmutable $from, CarbonImmutable $to, ?string $provinceCode, ?string $territoireCode): void
