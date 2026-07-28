@@ -11,6 +11,7 @@ use App\Exports\Sheets\VictimesSheet;
 use App\Exports\Sheets\ViolencesSheet;
 use App\Livewire\Components\IncidentEditModal;
 use App\Livewire\Pages\Dashboard;
+use App\Livewire\Pages\Reponses\Index as ReponsesIndex;
 use App\Models\Incident;
 use App\Models\Reponse;
 use App\Models\Role;
@@ -379,6 +380,34 @@ class IncidentReportingRulesTest extends TestCase
                 'to' => '2026-07-01',
             ]))
             ->assertSessionHasErrors('to');
+    }
+
+    public function test_response_can_be_created_without_incident(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        Livewire::actingAs($admin)
+            ->test(ReponsesIndex::class)
+            ->set('standaloneMode', true)
+            ->set('incident', null)
+            ->call('openCreate')
+            ->assertSet('showModal', true)
+            ->set('form.date_reponse', now()->toDateString())
+            ->set('form.fournie_par', 'Organisation autonome')
+            ->set('form.type_reponse', 'Humanitaire')
+            ->set('form.secteurs_couverts', ['Protection'])
+            ->set('form.nbre_menages_couverts', 5)
+            ->set('form.nbre_individus_couverts', 20)
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSet('showModal', false);
+
+        $this->assertDatabaseHas('reponses', [
+            'fournie_par' => 'Organisation autonome',
+            'alerte_id' => null,
+            'nbre_menages_couverts' => 5,
+            'nbre_individus_couverts' => 20,
+        ]);
     }
 
     public function test_unassigned_incident_without_violence_is_assigned_to_supervisor_when_validated(): void

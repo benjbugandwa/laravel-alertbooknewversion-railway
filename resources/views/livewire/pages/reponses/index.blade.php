@@ -27,6 +27,8 @@
                     <h1 class="text-xl font-bold text-gray-900">
                         @if($incident)
                             Incident : {{ $incident->code_incident }}
+                        @elseif($standaloneMode)
+                            Réponses sans alerte
                         @else
                             Aucun Incident Sélectionné
                         @endif
@@ -38,6 +40,7 @@
                 <span class="text-sm font-medium text-gray-700">Alerte :</span>
                 <select wire:model.live="selectedIncidentId" class="rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-onu">
                     <option value="">-- Choisir une alerte --</option>
+                    <option value="{{ $standaloneSelection }}">Réponses sans alerte</option>
                     @foreach($all_incidents as $inc)
                         <option value="{{ $inc['id'] }}">{{ $inc['code_incident'] }} - {{ $inc['localite'] }} ({{ \Carbon\Carbon::parse($inc['date_incident'])->format('d/m/Y') }})</option>
                     @endforeach
@@ -76,12 +79,18 @@
                     <div class="font-medium mt-1">{{ $incident->province?->nom_province ?? '—' }} / {{ $incident->localite ?? '—' }}</div>
                 </div>
             </div>
+        @elseif($standaloneMode)
+            <div class="p-6">
+                <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    Ces réponses correspondent à des interventions humanitaires enregistrées indépendamment d'une alerte.
+                </div>
+            </div>
         @endif
     </div>
 
-    @if($incident)
+    @if($incident || $standaloneMode)
         {{-- Verification constraint notice --}}
-        @if ($incident->statut_incident !== 'Validé' && $incident->statut_incident !== 'Cloturée')
+        @if ($incident && $incident->statut_incident !== 'Validé' && $incident->statut_incident !== 'Cloturée')
             <div class="p-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl flex items-start gap-3">
                 <svg class="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
@@ -96,8 +105,10 @@
         {{-- Section Title & Action Buttons --}}
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-                <h2 class="text-xl font-bold">Réponses apportées à l'incident</h2>
-                <p class="text-sm text-gray-600">Enregistrez et suivez les réponses humanitaires, militaires ou mixtes fournies.</p>
+                <h2 class="text-xl font-bold">{{ $standaloneMode ? 'Réponses indépendantes' : 'Réponses apportées à l\'incident' }}</h2>
+                <p class="text-sm text-gray-600">
+                    {{ $standaloneMode ? 'Enregistrez et suivez les interventions qui ne sont liées à aucune alerte.' : 'Enregistrez et suivez les réponses humanitaires, militaires ou mixtes fournies.' }}
+                </p>
             </div>
 
             <div class="flex items-center gap-2 self-end sm:self-auto">
@@ -105,7 +116,7 @@
                     class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-sm font-medium transition shadow-sm text-gray-700">
                     📥 Exporter Réponses Excel
                 </button>
-                @if ($this->canWrite() && ($incident->statut_incident === 'Validé' || $incident->statut_incident === 'Cloturée'))
+                @if ($this->canWrite() && ($standaloneMode || $incident->statut_incident === 'Validé' || $incident->statut_incident === 'Cloturée'))
                     <x-ui-button wire:click="openCreate">
                         + Nouvelle réponse
                     </x-ui-button>
@@ -237,7 +248,7 @@
                     @empty
                         <tr>
                             <td class="px-4 py-8 text-center text-gray-500" colspan="10">
-                                Aucune réponse enregistrée pour cet incident.
+                                {{ $standaloneMode ? 'Aucune réponse sans alerte enregistrée.' : 'Aucune réponse enregistrée pour cet incident.' }}
                             </td>
                         </tr>
                     @endforelse
@@ -260,7 +271,13 @@
 
                 <div class="relative w-full max-w-4xl bg-white rounded-2xl shadow-xl border max-h-[90vh] flex flex-col">
                     <div class="px-5 py-4 border-b flex items-center justify-between shrink-0">
-                        <div class="font-semibold text-lg text-gray-900">{{ $editing ? 'Modifier la réponse aux incidents' : 'Enregistrer une réponse aux incidents' }}</div>
+                        <div class="font-semibold text-lg text-gray-900">
+                            @if($standaloneMode)
+                                {{ $editing ? 'Modifier la réponse sans alerte' : 'Enregistrer une réponse sans alerte' }}
+                            @else
+                                {{ $editing ? 'Modifier la réponse aux incidents' : 'Enregistrer une réponse aux incidents' }}
+                            @endif
+                        </div>
                         <button type="button" class="opacity-60 hover:opacity-100 text-xl font-bold"
                             wire:click="$set('showModal', false)">✕</button>
                     </div>

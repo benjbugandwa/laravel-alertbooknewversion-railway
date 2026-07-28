@@ -2,26 +2,30 @@
 
 namespace App\Livewire\Pages\Reponses;
 
-use Livewire\Component;
-use Livewire\WithPagination;
-use Livewire\WithFileUploads;
-use App\Models\Reponse;
+use App\Exports\ReponsesExport;
+use App\Livewire\Forms\ReponseForm;
 use App\Models\Incident;
 use App\Models\Organisation;
-use App\Livewire\Forms\ReponseForm;
+use App\Models\Reponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Title;
+use Livewire\Component;
+use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\ReponsesExport;
 
 #[Title('Gestion des Réponses aux Incidents')]
 class Index extends Component
 {
-    use WithPagination, WithFileUploads;
+    use WithPagination;
+    use WithFileUploads;
+
+    private const STANDALONE_SELECTION = '__standalone__';
 
     public ?Incident $incident = null;
     public ReponseForm $form;
+    public bool $standaloneMode = false;
 
     // Selection properties
     public ?string $selectedIncidentId = null;
@@ -37,82 +41,94 @@ class Index extends Component
     public bool $showModal = false;
     public bool $editing = false;
     public ?int $editingId = null;
-    public $rapportFile = null; // for file upload
+    public $rapportFile = null;
 
     // Export Modal properties
     public bool $showExportModal = false;
     public string $exp_start_date = '';
     public string $exp_end_date = '';
 
-    public function mount(?string $incident = null)
+    public function mount(?string $incident = null): void
     {
         $user = Auth::user();
+        $this->standaloneMode = request()->boolean('standalone');
 
-        // Load incidents list for selection dropdown
         $incidentsQuery = Incident::orderByDesc('created_at')
             ->where('statut_incident', '!=', 'En attente');
-        if ($user->user_role !== 'superadmin' && $user->code_province) {
+
+        if (!$user->hasEffectiveRole('superadmin') && $user->code_province) {
             $incidentsQuery->where('code_province', $user->code_province);
         }
-        $this->all_incidents = $incidentsQuery->get(['id', 'code_incident', 'localite', 'date_incident'])->toArray();
 
-        // Resolve active incident
-        if ($incident) {
+        $this->all_incidents = $incidentsQuery
+            ->get(['id', 'code_incident', 'localite', 'date_incident'])
+            ->toArray();
+
+        if (!$this->standaloneMode && $incident) {
             $this->incident = Incident::find($incident);
         }
-        
-        if (!$this->incident) {
-            // Default to most recent validated / not-pending incident
+
+        if (!$this->standaloneMode && !$this->incident) {
             $first = Incident::orderByDesc('created_at')
                 ->where('statut_incident', '!=', 'En attente');
-            if ($user->user_role !== 'superadmin' && $user->code_province) {
+
+            if (!$user->hasEffectiveRole('superadmin') && $user->code_province) {
                 $first->where('code_province', $user->code_province);
             }
+
             $this->incident = $first->first();
         }
 
         if ($this->incident) {
             $this->selectedIncidentId = $this->incident->id;
+        } elseif ($this->standaloneMode) {
+            $this->selectedIncidentId = self::STANDALONE_SELECTION;
         }
 
-        // Load organisations list for autocomplete datalist
-        $this->organisations = Organisation::active()->orderBy('org_name')->get(['org_name', 'org_sigle'])->toArray();
+        $this->organisations = Organisation::active()
+            ->orderBy('org_name')
+            ->get(['org_name', 'org_sigle'])
+            ->toArray();
     }
 
     public function updatedSelectedIncidentId($value)
     {
+        if ($value === self::STANDALONE_SELECTION) {
+            return redirect()->route('reponses.index', ['standalone' => 1]);
+        }
+
         if ($value) {
             return redirect()->route('reponses.index', ['incident' => $value]);
         }
+
         return redirect()->route('reponses.index');
     }
 
-    public function canWrite()
+    public function canWrite(): bool
     {
-        return in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur'], true);
+        return (bool) auth()->user()?->hasAnyEffectiveRole(['superadmin', 'admin', 'superviseur']);
     }
 
-    public function updating($field)
+    public function updating($field): void
     {
-        if (in_array($field, ['f_date_reponse', 'f_fournie_par', 'f_type_reponse'])) {
+        if (in_array($field, ['f_date_reponse', 'f_fournie_par', 'f_type_reponse'], true)) {
             $this->resetPage();
         }
     }
 
-    public function openCreate()
+    public function openCreate(): void
     {
         if (!$this->canWrite()) {
             $this->dispatch('toast', message: 'Action non autorisée pour votre rôle.', type: 'error');
             return;
         }
 
-        if (!$this->incident) {
-            $this->dispatch('toast', message: "Aucun incident disponible.", type: 'error');
+        if (!$this->standaloneMode && !$this->incident) {
+            $this->dispatch('toast', message: 'Aucun incident disponible.', type: 'error');
             return;
         }
 
-        // Check if the incident is validated and not archived
-        if ($this->incident->statut_incident !== 'Validé' && $this->incident->statut_incident !== 'Cloturée') {
+        if (!$this->canModifyCurrentContext()) {
             $this->dispatch('toast', message: "Impossible d'ajouter une réponse à un incident non validé ou archivé.", type: 'error');
             return;
         }
@@ -121,23 +137,22 @@ class Index extends Component
         $this->form->reset();
         $this->rapportFile = null;
 
-        $this->form->alerte_id = $this->incident->id;
+        $this->form->alerte_id = $this->standaloneMode ? null : $this->incident->id;
         $this->editing = false;
         $this->editingId = null;
         $this->showModal = true;
     }
 
-    public function openEdit($id)
+    public function openEdit($id): void
     {
         if (!$this->canWrite()) {
             $this->dispatch('toast', message: 'Action non autorisée pour votre rôle.', type: 'error');
             return;
         }
 
-        $reponse = Reponse::findOrFail($id);
+        $reponse = Reponse::with('incident')->findOrFail($id);
 
-        // Check if the incident is validated and not archived
-        if ($this->incident->statut_incident !== 'Validé' && $this->incident->statut_incident !== 'Cloturée') {
+        if (!$this->canModifyResponse($reponse)) {
             $this->dispatch('toast', message: "Impossible de modifier une réponse d'un incident non validé ou archivé.", type: 'error');
             return;
         }
@@ -150,20 +165,32 @@ class Index extends Component
         $this->showModal = true;
     }
 
-    public function save()
+    public function save(): void
     {
         if (!$this->canWrite()) {
             $this->dispatch('toast', message: 'Action non autorisée.', type: 'error');
             return;
         }
 
-        // Backend double check
-        if ($this->incident->statut_incident !== 'Validé' && $this->incident->statut_incident !== 'Cloturée') {
-            $this->dispatch('toast', message: "L'incident doit être validé ou clôturé, et non archivé.", type: 'error');
-            return;
+        $existingReponse = null;
+        if ($this->editing) {
+            $existingReponse = Reponse::with('incident')->findOrFail($this->editingId);
+
+            if (!$this->canModifyResponse($existingReponse)) {
+                $this->dispatch('toast', message: "Cette réponse n'est pas modifiable.", type: 'error');
+                return;
+            }
+
+            $this->form->alerte_id = $existingReponse->alerte_id;
+        } else {
+            if (!$this->canModifyCurrentContext()) {
+                $this->dispatch('toast', message: "L'incident doit être validé ou clôturé, et non archivé.", type: 'error');
+                return;
+            }
+
+            $this->form->alerte_id = $this->standaloneMode ? null : $this->incident?->id;
         }
 
-        $this->form->alerte_id = $this->incident->id;
         $this->form->validate();
 
         if ($this->rapportFile) {
@@ -177,6 +204,7 @@ class Index extends Component
 
         $data = $this->form->all();
         unset($data['reponse'], $data['rapport']);
+        $data['alerte_id'] = $data['alerte_id'] ?: null;
 
         if ($this->rapportFile) {
             $path = $this->rapportFile->store('rapports', 'public');
@@ -184,8 +212,8 @@ class Index extends Component
         }
 
         if ($this->editing) {
-            $reponse = Reponse::findOrFail($this->editingId);
-            
+            $reponse = $existingReponse;
+
             if ($this->rapportFile && $reponse->rapport) {
                 Storage::disk('public')->delete($reponse->rapport);
             } elseif (!$this->rapportFile) {
@@ -203,22 +231,24 @@ class Index extends Component
         $this->showModal = false;
     }
 
-    public function delete($id)
+    public function delete($id): void
     {
         if (!$this->canWrite()) {
             $this->dispatch('toast', message: 'Action non autorisée.', type: 'error');
             return;
         }
 
-        if ($this->incident->statut_incident !== 'Validé' && $this->incident->statut_incident !== 'Cloturée') {
+        $reponse = Reponse::with('incident')->findOrFail($id);
+
+        if (!$this->canModifyResponse($reponse)) {
             $this->dispatch('toast', message: "L'incident n'est pas modifiable.", type: 'error');
             return;
         }
 
-        $reponse = Reponse::findOrFail($id);
         if ($reponse->rapport) {
             Storage::disk('public')->delete($reponse->rapport);
         }
+
         $reponse->delete();
 
         $this->dispatch('toast', message: 'Réponse supprimée avec succès.', type: 'success');
@@ -227,14 +257,16 @@ class Index extends Component
     public function downloadRapport($id)
     {
         $reponse = Reponse::findOrFail($id);
+
         if (!$reponse->rapport || !Storage::disk('public')->exists($reponse->rapport)) {
             $this->dispatch('toast', message: 'Fichier introuvable sur le serveur.', type: 'error');
             return;
         }
+
         return Storage::disk('public')->download($reponse->rapport);
     }
 
-    public function openExport()
+    public function openExport(): void
     {
         $this->resetValidation();
         $this->exp_start_date = '';
@@ -253,12 +285,18 @@ class Index extends Component
             'exp_end_date.after_or_equal' => 'La date de fin doit être supérieure ou égale à la date de début.',
         ]);
 
-        $filename = 'Export_Reponses_' . ($this->incident ? $this->incident->code_incident . '_' : '') . now()->format('Ymd_His') . '.xlsx';
-        
+        $scope = $this->standaloneMode ? 'Sans_Alerte_' : ($this->incident ? $this->incident->code_incident . '_' : '');
+        $filename = 'Export_Reponses_' . $scope . now()->format('Ymd_His') . '.xlsx';
+
         $this->showExportModal = false;
 
         return Excel::download(
-            new ReponsesExport($this->exp_start_date, $this->exp_end_date, $this->incident->id), 
+            new ReponsesExport(
+                $this->exp_start_date,
+                $this->exp_end_date,
+                $this->incident?->id,
+                $this->standaloneMode,
+            ),
             $filename
         );
     }
@@ -267,16 +305,23 @@ class Index extends Component
     {
         $reponses = collect();
 
-        if ($this->incident) {
-            $query = Reponse::where('alerte_id', $this->incident->id)->with(['creator']);
+        if ($this->incident || $this->standaloneMode) {
+            $query = Reponse::query()
+                ->with(['creator', 'incident'])
+                ->when(
+                    $this->standaloneMode,
+                    fn ($query) => $query->whereNull('alerte_id'),
+                    fn ($query) => $query->where('alerte_id', $this->incident->id)
+                );
 
-            // Search and Filters
             if ($this->f_date_reponse) {
                 $query->whereDate('date_reponse', $this->f_date_reponse);
             }
+
             if ($this->f_fournie_par) {
                 $query->where('fournie_par', 'like', '%' . $this->f_fournie_par . '%');
             }
+
             if ($this->f_type_reponse) {
                 $query->where('type_reponse', $this->f_type_reponse);
             }
@@ -288,6 +333,28 @@ class Index extends Component
             'reponses' => $reponses,
             'types_options' => ['Humanitaire', 'Militaire', 'Mixte', 'Autre'],
             'secteurs_options' => ['Sécurité', 'Protection', 'WASH', 'santé', 'Education', 'Sécurité alimentaire'],
+            'standaloneSelection' => self::STANDALONE_SELECTION,
+            'standaloneMode' => $this->standaloneMode,
         ]);
+    }
+
+    private function canModifyCurrentContext(): bool
+    {
+        return $this->standaloneMode || $this->canModifyIncidentResponse($this->incident);
+    }
+
+    private function canModifyResponse(Reponse $reponse): bool
+    {
+        if (!$reponse->alerte_id) {
+            return true;
+        }
+
+        return $this->canModifyIncidentResponse($reponse->incident);
+    }
+
+    private function canModifyIncidentResponse(?Incident $incident): bool
+    {
+        return $incident !== null
+            && in_array($incident->statut_incident, ['Validé', 'Cloturée'], true);
     }
 }

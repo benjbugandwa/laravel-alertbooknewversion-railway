@@ -19,22 +19,29 @@ class ReponsesExport implements FromQuery, WithMapping, WithHeadings, WithStyles
     protected ?string $startDate;
     protected ?string $endDate;
     protected ?string $incidentId;
+    protected bool $standaloneOnly;
 
-    public function __construct(?string $startDate = null, ?string $endDate = null, ?string $incidentId = null)
+    public function __construct(?string $startDate = null, ?string $endDate = null, ?string $incidentId = null, bool $standaloneOnly = false)
     {
         $this->startDate = $startDate;
         $this->endDate = $endDate;
         $this->incidentId = $incidentId;
+        $this->standaloneOnly = $standaloneOnly;
     }
 
     public function query()
     {
         $query = Reponse::query()
-            ->whereHas('incident', fn ($incidentQuery) => $incidentQuery
-                ->where('statut_incident', Incident::STATUS_VALIDATED))
             ->with(['incident', 'creator']);
 
-        if ($this->incidentId) {
+        if ($this->standaloneOnly) {
+            $query->whereNull('alerte_id');
+        } else {
+            $query->whereHas('incident', fn ($incidentQuery) => $incidentQuery
+                ->where('statut_incident', Incident::STATUS_VALIDATED));
+        }
+
+        if (!$this->standaloneOnly && $this->incidentId) {
             $query->where('alerte_id', $this->incidentId);
         }
 

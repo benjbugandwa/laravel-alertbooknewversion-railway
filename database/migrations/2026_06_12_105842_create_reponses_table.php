@@ -28,7 +28,7 @@ return new class extends Migration
             $table->longText('impact_reponse')->nullable();
             $table->longText('observation_gap')->nullable();
             $table->string('rapport')->nullable(); // word, pdf, image file path
-            $table->uuid('alerte_id');
+            $table->uuid('alerte_id')->nullable();
             $table->date('create_at');
             $table->unsignedBigInteger('created_by');
 

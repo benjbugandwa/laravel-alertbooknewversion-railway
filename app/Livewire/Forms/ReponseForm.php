@@ -24,7 +24,7 @@ class ReponseForm extends Form
     public function rules()
     {
         return [
-            'alerte_id' => ['required', 'exists:incidents,id'],
+            'alerte_id' => ['nullable', 'exists:incidents,id'],
             'date_reponse' => ['required', 'date', 'before_or_equal:today'],
             'fournie_par' => ['required', 'string', 'max:255'],
             'type_reponse' => ['required', 'string', Rule::in(['Humanitaire', 'Militaire', 'Mixte', 'Autre'])],
