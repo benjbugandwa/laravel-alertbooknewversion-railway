@@ -168,6 +168,144 @@ class IncidentReportingRulesTest extends TestCase
             });
     }
 
+    public function test_dashboard_operational_kpis_follow_user_scope_and_period(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $organisationId = DB::table('organisations')->insertGetId([
+            'org_sigle' => 'ORG',
+            'org_name' => 'Organisation test',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $admin->forceFill(['org_id' => $organisationId])->save();
+
+        DB::table('territoires')->insert([
+            'code_territoire' => 'TKPI',
+            'nom_territoire' => 'Territoire KPI',
+            'code_province' => 'P01',
+        ]);
+        DB::table('zonesantes')->insert([
+            'code_zonesante' => 'ZKPI',
+            'nom_zonesante' => 'Zone KPI',
+            'code_territoire' => 'TKPI',
+        ]);
+        DB::table('airesantes')->insert([
+            'code_airesante' => 'AKPI',
+            'nom_airesante' => 'Aire KPI',
+            'code_zonesante' => 'ZKPI',
+        ]);
+        DB::table('violences')->insert([
+            'id' => 9901,
+            'violence_name' => 'Violence KPI',
+            'categorie_name' => 'Categorie KPI',
+        ]);
+
+        $withResponse = $this->incidentFor($admin, Incident::STATUS_VALIDATED, 'ALT-KPI-1', [
+            'code_territoire' => 'TKPI',
+            'code_zonesante' => 'ZKPI',
+            'code_airesante' => 'AKPI',
+        ]);
+        $withoutResponse = $this->incidentFor($admin, Incident::STATUS_VALIDATED, 'ALT-KPI-2', [
+            'code_territoire' => 'TKPI',
+            'code_zonesante' => 'ZKPI',
+            'code_airesante' => 'AKPI',
+        ]);
+        $this->incidentFor($admin, 'En attente', 'ALT-KPI-PENDING', [
+            'code_territoire' => 'TKPI',
+            'code_zonesante' => 'ZKPI',
+            'code_airesante' => 'AKPI',
+        ]);
+        $this->incidentFor($admin, Incident::STATUS_VALIDATED, 'ALT-KPI-OLD', [
+            'code_territoire' => 'TKPI',
+            'date_incident' => now()->subDays(60),
+        ]);
+
+        Reponse::create([
+            'num_reponse' => 'REP-KPI-1',
+            'date_reponse' => now()->toDateString(),
+            'fournie_par' => 'Organisation test',
+            'type_reponse' => 'Humanitaire',
+            'secteurs_couverts' => ['Protection'],
+            'alerte_id' => $withResponse->id,
+            'created_by' => $admin->id,
+        ]);
+
+        $providerId = DB::table('service_providers')->insertGetId([
+            'provider_name' => 'Structure KPI',
+            'created_by' => $admin->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('referencements')->insert([
+            'id' => (string) Str::uuid(),
+            'code_referencement' => 'REF-KPI-1',
+            'id_incident' => $withResponse->id,
+            'date_referencement' => now(),
+            'provider_id' => $providerId,
+            'created_by' => $admin->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Victime::create([
+            'incident_id' => $withResponse->id,
+            'violence_id' => 9901,
+            'profile_victimes' => 'Residents',
+            'nbre_femme_18a59ans' => 2,
+            'nbre_homme_18a59ans' => 3,
+            'description_faits' => 'Victimes KPI',
+            'create_at' => now()->toDateString(),
+            'created_by' => $admin->id,
+        ]);
+
+        DB::table('mouvements')->insert([
+            'date_mouvement' => now()->toDateString(),
+            'type_mouvement' => 'Retour',
+            'source_info' => 'Source KPI',
+            'code_province_prov' => 'P01',
+            'code_territoire_prov' => 'TKPI',
+            'code_zonesante_prov' => 'ZKPI',
+            'localite_prov' => 'Depart',
+            'code_province_accl' => 'P01',
+            'code_territoire_accl' => 'TKPI',
+            'code_zonesante_accl' => 'ZKPI',
+            'localite_accl' => 'Accueil',
+            'type_logement' => 'Famille accueil',
+            'created_by' => $admin->id,
+            'estim_nbre_menages' => 4,
+            'estim_nbre_personnes' => 19,
+            'incident_id' => $withResponse->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(Dashboard::class)
+            ->assertViewMissing('Utilisateurs actifs')
+            ->assertViewMissing('En attente d’activation')
+            ->assertViewHas('chart', function (array $chart) use ($withoutResponse): bool {
+                $orgIndex = collect($chart['byOrganisation']['labels'])->search('ORG');
+
+                return $chart['scope']['isSuper'] === false
+                    && $chart['scope']['code_province'] === 'P01'
+                    && $chart['users']['active'] === null
+                    && $chart['users']['pending'] === null
+                    && $chart['kpis']['validated_incidents'] === 2
+                    && $chart['kpis']['responded_incidents'] === 1
+                    && $chart['kpis']['response_rate'] === 50.0
+                    && $chart['kpis']['referred_incidents'] === 1
+                    && $chart['kpis']['referral_rate'] === 50.0
+                    && $chart['kpis']['victims_total'] === 5
+                    && $chart['kpis']['movement_households'] === 4
+                    && $chart['kpis']['movement_people'] === 19
+                    && $chart['kpis']['service_providers'] === 1
+                    && $orgIndex !== false
+                    && $chart['byOrganisation']['validated'][$orgIndex] === 2
+                    && $chart['byOrganisation']['pending'][$orgIndex] === 1;
+            });
+    }
+
     public function test_incident_export_only_contains_validated_incidents(): void
     {
         $user = $this->userWithRole('admin');
