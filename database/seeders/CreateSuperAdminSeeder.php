@@ -18,7 +18,7 @@ class CreateSuperAdminSeeder extends Seeder
                 'password' => Hash::make('Password123!'),
                 'is_active' => true,
                 // 'code_province' => 'PROV01',
-                'code_province' => 'CD74',
+                'code_province' => null,
 
                 // ou une valeur existante dans provinces
             ]
