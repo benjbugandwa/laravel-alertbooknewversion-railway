@@ -114,20 +114,6 @@ class IncidentSlaService
             ->when($provinceCode, fn (Builder $q) => $q->where('code_province', $provinceCode))
             ->when($territoryCode, fn (Builder $q) => $q->where('code_territoire', $territoryCode));
 
-        $countRelations = [];
-
-        if ($this->canCountRelation('reponses', 'alerte_id')) {
-            $countRelations[] = 'reponses';
-        }
-
-        if ($this->canCountRelation('referencements', 'id_incident')) {
-            $countRelations[] = 'referencements';
-        }
-
-        if ($countRelations !== []) {
-            $query->withCount($countRelations);
-        }
-
         return $query;
     }
 

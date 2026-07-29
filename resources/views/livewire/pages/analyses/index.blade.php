@@ -34,7 +34,7 @@
                     @enderror
                 </div>
 
-                @if (auth()->user()?->hasEffectiveRole('superadmin'))
+                @if (auth()->user()?->hasRole('superadmin'))
                     <div class="space-y-1">
                         <label class="text-sm font-medium text-gray-700">Province</label>
                         <select wire:model.live="province"

@@ -25,7 +25,7 @@ class AnalysisReportController extends Controller
 
         $user = $request->user();
 
-        if (! $user->hasEffectiveRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $data['province'] = $user->code_province;
         }
 

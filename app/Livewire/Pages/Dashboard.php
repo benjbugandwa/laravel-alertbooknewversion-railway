@@ -6,6 +6,7 @@ use App\Models\Incident;
 use App\Models\Province;
 use App\Services\IncidentSlaService;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -382,9 +383,9 @@ class Dashboard extends Component
         self::applyIncidentPeriodScope($query, $days);
 
         $query->whereExists(function ($exists) use ($table, $incidentColumn) {
-            $exists->selectRaw('1')
-                ->from($table)
-                ->whereColumn($table.'.'.$incidentColumn, 'incidents.id');
+            $exists->selectRaw('1')->from($table);
+
+            self::whereColumnMatchesIncidentId($exists, $table.'.'.$incidentColumn);
         });
 
         return (int) $query->count();
@@ -418,7 +419,9 @@ class Dashboard extends Component
             ->implode(' + ');
 
         $query = DB::table('victimes')
-            ->join('incidents', 'victimes.incident_id', '=', 'incidents.id')
+            ->join('incidents', function (JoinClause $join): void {
+                self::joinColumnMatchesIncidentId($join, 'victimes.incident_id');
+            })
             ->selectRaw('COALESCE(SUM('.$sumExpression.'), 0) as total');
         self::applyValidatedIncidentScope($query, $provinceScope, $territoireScope);
         self::applyIncidentPeriodScope($query, $days);
@@ -443,7 +446,9 @@ class Dashboard extends Component
             ->where('mouvements.date_mouvement', '>=', now()->subDays($days)->startOfDay());
 
         if (self::tableHasColumns('mouvements', ['incident_id'])) {
-            $query->leftJoin('incidents', 'mouvements.incident_id', '=', 'incidents.id');
+            $query->leftJoin('incidents', function (JoinClause $join): void {
+                self::joinColumnMatchesIncidentId($join, 'mouvements.incident_id');
+            });
             self::applyMovementScope($query, $provinceScope, $territoireScope);
         } elseif ($provinceScope || $territoireScope) {
             self::applyStandaloneMovementScope($query, $provinceScope, $territoireScope);
@@ -471,6 +476,35 @@ class Dashboard extends Component
         }
 
         return (int) $query->count();
+    }
+
+    private static function whereColumnMatchesIncidentId($query, string $relatedColumn): void
+    {
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            $query->whereRaw(self::textColumnComparison($relatedColumn, 'incidents.id'));
+
+            return;
+        }
+
+        $query->whereColumn($relatedColumn, 'incidents.id');
+    }
+
+    private static function joinColumnMatchesIncidentId(JoinClause $join, string $relatedColumn): void
+    {
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            $join->whereRaw(self::textColumnComparison($relatedColumn, 'incidents.id'));
+
+            return;
+        }
+
+        $join->on($relatedColumn, '=', 'incidents.id');
+    }
+
+    private static function textColumnComparison(string $leftColumn, string $rightColumn): string
+    {
+        $grammar = DB::connection()->getQueryGrammar();
+
+        return $grammar->wrap($leftColumn).'::text = '.$grammar->wrap($rightColumn).'::text';
     }
 
     private static function applyValidatedIncidentScope(

@@ -125,7 +125,7 @@ class Index extends Component
 
     private function isSuperAdmin(): bool
     {
-        return (bool) Auth::user()?->hasEffectiveRole('superadmin');
+        return (bool) Auth::user()?->hasRole('superadmin');
     }
 
     private function ensureTerritoireBelongsToProvince(?string $territoire, ?string $province): void

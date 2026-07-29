@@ -18,34 +18,45 @@ use Maatwebsite\Excel\Facades\Excel;
 #[Title('Gestion des Réponses aux Incidents')]
 class Index extends Component
 {
-    use WithPagination;
     use WithFileUploads;
+    use WithPagination;
 
     private const STANDALONE_SELECTION = '__standalone__';
 
     public ?Incident $incident = null;
+
     public ReponseForm $form;
+
     public bool $standaloneMode = false;
 
     // Selection properties
     public ?string $selectedIncidentId = null;
+
     public array $all_incidents = [];
+
     public array $organisations = [];
 
     // Filter properties
     public ?string $f_date_reponse = '';
+
     public string $f_fournie_par = '';
+
     public string $f_type_reponse = '';
 
     // Modal properties
     public bool $showModal = false;
+
     public bool $editing = false;
+
     public ?int $editingId = null;
+
     public $rapportFile = null;
 
     // Export Modal properties
     public bool $showExportModal = false;
+
     public string $exp_start_date = '';
+
     public string $exp_end_date = '';
 
     public function mount(?string $incident = null): void
@@ -56,7 +67,7 @@ class Index extends Component
         $incidentsQuery = Incident::orderByDesc('created_at')
             ->where('statut_incident', '!=', 'En attente');
 
-        if (!$user->hasEffectiveRole('superadmin') && $user->code_province) {
+        if (! $user->hasRole('superadmin') && $user->code_province) {
             $incidentsQuery->where('code_province', $user->code_province);
         }
 
@@ -64,15 +75,15 @@ class Index extends Component
             ->get(['id', 'code_incident', 'localite', 'date_incident'])
             ->toArray();
 
-        if (!$this->standaloneMode && $incident) {
+        if (! $this->standaloneMode && $incident) {
             $this->incident = Incident::find($incident);
         }
 
-        if (!$this->standaloneMode && !$this->incident) {
+        if (! $this->standaloneMode && ! $this->incident) {
             $first = Incident::orderByDesc('created_at')
                 ->where('statut_incident', '!=', 'En attente');
 
-            if (!$user->hasEffectiveRole('superadmin') && $user->code_province) {
+            if (! $user->hasRole('superadmin') && $user->code_province) {
                 $first->where('code_province', $user->code_province);
             }
 
@@ -106,7 +117,7 @@ class Index extends Component
 
     public function canWrite(): bool
     {
-        return (bool) auth()->user()?->hasAnyEffectiveRole(['superadmin', 'admin', 'superviseur']);
+        return (bool) auth()->user()?->hasAnyRole(['superadmin', 'admin', 'superviseur']);
     }
 
     public function updating($field): void
@@ -118,18 +129,21 @@ class Index extends Component
 
     public function openCreate(): void
     {
-        if (!$this->canWrite()) {
+        if (! $this->canWrite()) {
             $this->dispatch('toast', message: 'Action non autorisée pour votre rôle.', type: 'error');
+
             return;
         }
 
-        if (!$this->standaloneMode && !$this->incident) {
+        if (! $this->standaloneMode && ! $this->incident) {
             $this->dispatch('toast', message: 'Aucun incident disponible.', type: 'error');
+
             return;
         }
 
-        if (!$this->canModifyCurrentContext()) {
+        if (! $this->canModifyCurrentContext()) {
             $this->dispatch('toast', message: "Impossible d'ajouter une réponse à un incident non validé ou archivé.", type: 'error');
+
             return;
         }
 
@@ -145,15 +159,17 @@ class Index extends Component
 
     public function openEdit($id): void
     {
-        if (!$this->canWrite()) {
+        if (! $this->canWrite()) {
             $this->dispatch('toast', message: 'Action non autorisée pour votre rôle.', type: 'error');
+
             return;
         }
 
         $reponse = Reponse::with('incident')->findOrFail($id);
 
-        if (!$this->canModifyResponse($reponse)) {
+        if (! $this->canModifyResponse($reponse)) {
             $this->dispatch('toast', message: "Impossible de modifier une réponse d'un incident non validé ou archivé.", type: 'error');
+
             return;
         }
 
@@ -167,8 +183,9 @@ class Index extends Component
 
     public function save(): void
     {
-        if (!$this->canWrite()) {
+        if (! $this->canWrite()) {
             $this->dispatch('toast', message: 'Action non autorisée.', type: 'error');
+
             return;
         }
 
@@ -176,15 +193,17 @@ class Index extends Component
         if ($this->editing) {
             $existingReponse = Reponse::with('incident')->findOrFail($this->editingId);
 
-            if (!$this->canModifyResponse($existingReponse)) {
+            if (! $this->canModifyResponse($existingReponse)) {
                 $this->dispatch('toast', message: "Cette réponse n'est pas modifiable.", type: 'error');
+
                 return;
             }
 
             $this->form->alerte_id = $existingReponse->alerte_id;
         } else {
-            if (!$this->canModifyCurrentContext()) {
+            if (! $this->canModifyCurrentContext()) {
                 $this->dispatch('toast', message: "L'incident doit être validé ou clôturé, et non archivé.", type: 'error');
+
                 return;
             }
 
@@ -216,7 +235,7 @@ class Index extends Component
 
             if ($this->rapportFile && $reponse->rapport) {
                 Storage::disk('public')->delete($reponse->rapport);
-            } elseif (!$this->rapportFile) {
+            } elseif (! $this->rapportFile) {
                 $data['rapport'] = $reponse->rapport;
             }
 
@@ -233,15 +252,17 @@ class Index extends Component
 
     public function delete($id): void
     {
-        if (!$this->canWrite()) {
+        if (! $this->canWrite()) {
             $this->dispatch('toast', message: 'Action non autorisée.', type: 'error');
+
             return;
         }
 
         $reponse = Reponse::with('incident')->findOrFail($id);
 
-        if (!$this->canModifyResponse($reponse)) {
+        if (! $this->canModifyResponse($reponse)) {
             $this->dispatch('toast', message: "L'incident n'est pas modifiable.", type: 'error');
+
             return;
         }
 
@@ -258,8 +279,9 @@ class Index extends Component
     {
         $reponse = Reponse::findOrFail($id);
 
-        if (!$reponse->rapport || !Storage::disk('public')->exists($reponse->rapport)) {
+        if (! $reponse->rapport || ! Storage::disk('public')->exists($reponse->rapport)) {
             $this->dispatch('toast', message: 'Fichier introuvable sur le serveur.', type: 'error');
+
             return;
         }
 
@@ -285,8 +307,8 @@ class Index extends Component
             'exp_end_date.after_or_equal' => 'La date de fin doit être supérieure ou égale à la date de début.',
         ]);
 
-        $scope = $this->standaloneMode ? 'Sans_Alerte_' : ($this->incident ? $this->incident->code_incident . '_' : '');
-        $filename = 'Export_Reponses_' . $scope . now()->format('Ymd_His') . '.xlsx';
+        $scope = $this->standaloneMode ? 'Sans_Alerte_' : ($this->incident ? $this->incident->code_incident.'_' : '');
+        $filename = 'Export_Reponses_'.$scope.now()->format('Ymd_His').'.xlsx';
 
         $this->showExportModal = false;
 
@@ -319,7 +341,7 @@ class Index extends Component
             }
 
             if ($this->f_fournie_par) {
-                $query->where('fournie_par', 'like', '%' . $this->f_fournie_par . '%');
+                $query->where('fournie_par', 'like', '%'.$this->f_fournie_par.'%');
             }
 
             if ($this->f_type_reponse) {
@@ -345,7 +367,7 @@ class Index extends Component
 
     private function canModifyResponse(Reponse $reponse): bool
     {
-        if (!$reponse->alerte_id) {
+        if (! $reponse->alerte_id) {
             return true;
         }
 
