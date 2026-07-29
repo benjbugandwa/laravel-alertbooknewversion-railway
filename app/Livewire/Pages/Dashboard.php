@@ -30,7 +30,7 @@ class Dashboard extends Component
     {
         $user = Auth::user();
 
-        if ($user->hasEffectiveRole('superadmin')) {
+        if ($user->hasRole('superadmin')) {
             $this->provinces = Province::query()
                 ->orderBy('nom_province')
                 ->get(['code_province', 'nom_province'])
@@ -71,7 +71,7 @@ class Dashboard extends Component
         $slaService = app(IncidentSlaService::class);
         $user = Auth::user();
         $provinceName = null;
-        $isSuper = $user->hasEffectiveRole('superadmin');
+        $isSuper = $user->hasRole('superadmin');
         $days = $this->days;
 
         $provinceScope = $isSuper ? ($this->selectedProvince ?: null) : $user->code_province;

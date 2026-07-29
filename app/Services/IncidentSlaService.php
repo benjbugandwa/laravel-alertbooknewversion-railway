@@ -6,20 +6,25 @@ use App\Models\Incident;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class IncidentSlaService
 {
     public const VALIDATION_HOURS = 24;
+
     public const RESPONSE_HOURS = 72;
+
     public const REFERRAL_DAYS = 7;
 
     public function statusFor(Incident $incident): array
     {
-        if (!array_key_exists('reponses_count', $incident->getAttributes())) {
-            $incident->loadCount('reponses');
+        if (! array_key_exists('reponses_count', $incident->getAttributes())) {
+            $incident->setAttribute('reponses_count', $this->relatedCount('reponses', 'alerte_id', $incident));
         }
-        if (!array_key_exists('referencements_count', $incident->getAttributes())) {
-            $incident->loadCount('referencements');
+
+        if (! array_key_exists('referencements_count', $incident->getAttributes())) {
+            $incident->setAttribute('referencements_count', $this->relatedCount('referencements', 'id_incident', $incident));
         }
 
         $base = \Illuminate\Support\Carbon::parse($incident->created_at ?? $incident->date_incident ?? now());
@@ -46,7 +51,7 @@ class IncidentSlaService
             ),
         ];
 
-        $overdue = collect($items)->filter(fn(array $item) => $item['is_overdue'])->values();
+        $overdue = collect($items)->filter(fn (array $item) => $item['is_overdue'])->values();
 
         return [
             'items' => $items,
@@ -64,10 +69,11 @@ class IncidentSlaService
             ->get()
             ->map(function (Incident $incident) {
                 $incident->sla = $this->statusFor($incident);
+
                 return $incident;
             })
-            ->filter(fn(Incident $incident) => $incident->sla['has_overdue'])
-            ->sortBy(fn(Incident $incident) => $incident->sla['worst_due_at'])
+            ->filter(fn (Incident $incident) => $incident->sla['has_overdue'])
+            ->sortBy(fn (Incident $incident) => $incident->sla['worst_due_at'])
             ->take($limit)
             ->values();
     }
@@ -85,9 +91,11 @@ class IncidentSlaService
 
         foreach ($incidents as $incident) {
             $sla = $this->statusFor($incident);
+
             if ($sla['has_overdue']) {
                 $summary['total_overdue_incidents']++;
             }
+
             foreach ($sla['items'] as $key => $item) {
                 if ($item['is_overdue']) {
                     $summary[$key]++;
@@ -100,12 +108,43 @@ class IncidentSlaService
 
     private function baseQuery(?string $provinceCode, ?string $territoryCode): Builder
     {
-        return Incident::query()
+        $query = Incident::query()
             ->with(['province', 'territoire', 'zoneSante'])
-            ->withCount(['reponses', 'referencements'])
             ->where('statut_incident', '!=', 'Cloturée')
-            ->when($provinceCode, fn(Builder $q) => $q->where('code_province', $provinceCode))
-            ->when($territoryCode, fn(Builder $q) => $q->where('code_territoire', $territoryCode));
+            ->when($provinceCode, fn (Builder $q) => $q->where('code_province', $provinceCode))
+            ->when($territoryCode, fn (Builder $q) => $q->where('code_territoire', $territoryCode));
+
+        $countRelations = [];
+
+        if ($this->canCountRelation('reponses', 'alerte_id')) {
+            $countRelations[] = 'reponses';
+        }
+
+        if ($this->canCountRelation('referencements', 'id_incident')) {
+            $countRelations[] = 'referencements';
+        }
+
+        if ($countRelations !== []) {
+            $query->withCount($countRelations);
+        }
+
+        return $query;
+    }
+
+    private function canCountRelation(string $table, string $incidentColumn): bool
+    {
+        return Schema::hasTable($table) && Schema::hasColumn($table, $incidentColumn);
+    }
+
+    private function relatedCount(string $table, string $incidentColumn, Incident $incident): int
+    {
+        if (! $this->canCountRelation($table, $incidentColumn)) {
+            return 0;
+        }
+
+        return (int) DB::table($table)
+            ->where($incidentColumn, $incident->getKey())
+            ->count();
     }
 
     private function buildItem(string $label, bool $active, CarbonInterface $dueAt, string $description): array
