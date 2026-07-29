@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -28,7 +29,6 @@ class User extends Authenticatable
         'password',
         'phone_number',
         'job_title',
-        'user_role',
         'is_active',
         'org_id',
         'avatar_url',
@@ -93,6 +93,10 @@ class User extends Authenticatable
 
     public function hasRole(string $slug): bool
     {
+        if (! $this->rolesSchemaAvailable()) {
+            return false;
+        }
+
         $this->loadMissing('roles');
 
         return $this->roles->contains('slug', $slug);
@@ -100,6 +104,10 @@ class User extends Authenticatable
 
     public function hasAnyRole(array $slugs): bool
     {
+        if (! $this->rolesSchemaAvailable()) {
+            return false;
+        }
+
         $this->loadMissing('roles');
 
         return $this->roles->whereIn('slug', $slugs)->isNotEmpty();
@@ -107,27 +115,35 @@ class User extends Authenticatable
 
     public function isSuperAdmin(): bool
     {
-        return $this->hasEffectiveRole('superadmin');
+        return $this->hasRole('superadmin');
     }
 
     public function hasEffectiveRole(string $slug): bool
     {
-        return $this->user_role === $slug || $this->hasRole($slug);
+        return $this->hasRole($slug);
     }
 
     public function hasAnyEffectiveRole(array $slugs): bool
     {
-        return in_array($this->user_role, $slugs, true) || $this->hasAnyRole($slugs);
+        return $this->hasAnyRole($slugs);
     }
 
     public function effectiveRole(): ?string
     {
-        if ($this->user_role) {
-            return $this->user_role;
+        if (! $this->rolesSchemaAvailable()) {
+            return null;
         }
 
         $this->loadMissing('roles');
 
         return $this->roles->first()?->slug;
+    }
+
+    private function rolesSchemaAvailable(): bool
+    {
+        return Schema::hasTable('roles')
+            && Schema::hasColumn('roles', 'slug')
+            && Schema::hasTable('roles_users')
+            && Schema::hasColumns('roles_users', ['user_id', 'role_id']);
     }
 }

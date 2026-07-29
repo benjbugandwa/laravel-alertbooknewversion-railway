@@ -1,22 +1,27 @@
 <?php
 
-use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new #[Layout('layouts.guest')] class extends Component {
+new #[Layout('layouts.guest')] class extends Component
+{
     public string $name = '';
+
     public string $email = '';
+
     public string $password = '';
+
     public string $password_confirmation = '';
+
     public $org_id = null;
+
     public string $code_province = '';
+
     public $organisations = [];
+
     public $provinces = [];
 
     public function mount()
@@ -33,7 +38,7 @@ new #[Layout('layouts.guest')] class extends Component {
         $validated = $this->validate(
             [
                 'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . \App\Models\User::class],
+                'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.\App\Models\User::class],
                 'password' => ['required', 'string', \Illuminate\Validation\Rules\Password::defaults(), 'confirmed'],
                 'org_id' => ['required', Rule::exists('organisations', 'id')->where('is_active', true)],
                 'code_province' => ['required', 'exists:provinces,code_province'],
@@ -61,7 +66,6 @@ new #[Layout('layouts.guest')] class extends Component {
             'is_active' => false,
             'org_id' => $validated['org_id'],
             'code_province' => $validated['code_province'],
-            'user_role' => null,
         ]);
 
         // Optionnel : garde l’event Registered si tu veux la vérif email plus tard
@@ -85,7 +89,7 @@ new #[Layout('layouts.guest')] class extends Component {
     protected function superAdmins(string $codeProvince)
     {
         return \App\Models\User::query()
-            ->whereHas('roles', fn($q) => $q->where('slug', 'superadmin'))
+            ->whereHas('roles', fn ($q) => $q->where('slug', 'superadmin'))
             ->where('code_province', $codeProvince)
             ->where('is_active', true)
             ->get();
