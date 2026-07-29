@@ -42,6 +42,11 @@ class IncidentReportingRulesTest extends TestCase
             'nom_province' => 'Province test',
             'is_active' => 'YES',
         ]);
+        DB::table('provinces')->insert([
+            'code_province' => 'P02',
+            'nom_province' => 'Autre province',
+            'is_active' => 'YES',
+        ]);
         DB::table('evenements')->insert([
             'code_evenement' => 'EVENT01',
             'nom_evenement' => 'Événement test',
@@ -216,6 +221,11 @@ class IncidentReportingRulesTest extends TestCase
             'code_zonesante' => 'ZKPI',
             'code_airesante' => 'AKPI',
         ]);
+        $pendingWithVictims = $this->incidentFor($admin, 'En attente', 'ALT-KPI-PENDING-VICTIMS', [
+            'code_territoire' => 'TKPI',
+            'code_zonesante' => 'ZKPI',
+            'code_airesante' => 'AKPI',
+        ]);
         $this->incidentFor($admin, Incident::STATUS_VALIDATED, 'ALT-KPI-OLD', [
             'code_territoire' => 'TKPI',
             'date_incident' => now()->subDays(60),
@@ -234,6 +244,15 @@ class IncidentReportingRulesTest extends TestCase
         $providerId = DB::table('service_providers')->insertGetId([
             'provider_name' => 'Structure KPI',
             'created_by' => $admin->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $otherProvinceUser = $this->userWithRole('admin');
+        $otherProvinceUser->forceFill(['code_province' => 'P02'])->save();
+        DB::table('service_providers')->insert([
+            'provider_name' => 'Structure localisee KPI',
+            'provider_location' => json_encode(['P01']),
+            'created_by' => $otherProvinceUser->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -258,6 +277,16 @@ class IncidentReportingRulesTest extends TestCase
             'create_at' => now()->toDateString(),
             'created_by' => $admin->id,
         ]);
+        Victime::create([
+            'incident_id' => $pendingWithVictims->id,
+            'violence_id' => 9901,
+            'profile_victimes' => 'Residents',
+            'nbre_femme_18a59ans' => 4,
+            'nbre_homme_18a59ans' => 6,
+            'description_faits' => 'Victimes KPI en attente',
+            'create_at' => now()->toDateString(),
+            'created_by' => $admin->id,
+        ]);
 
         DB::table('mouvements')->insert([
             'date_mouvement' => now()->toDateString(),
@@ -279,6 +308,27 @@ class IncidentReportingRulesTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        DB::table('mouvements')->insert([
+            'date_mouvement' => now()->toDateString(),
+            'type_mouvement' => 'Fuite',
+            'source_info' => 'Source KPI autonome',
+            'code_province_prov' => 'P02',
+            'code_territoire_prov' => 'TKPI',
+            'code_zonesante_prov' => 'ZKPI',
+            'localite_prov' => 'Depart autonome',
+            'code_province_accl' => 'P01',
+            'code_territoire_accl' => 'TKPI',
+            'code_zonesante_accl' => 'ZKPI',
+            'localite_accl' => 'Accueil autonome',
+            'type_logement' => 'Famille accueil',
+            'created_by' => $admin->id,
+            'estim_nbre_menages' => 6,
+            'estim_nbre_personnes' => 30,
+            'incident_id' => null,
+            'cause_deplacement' => 'Cause autonome',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         Livewire::actingAs($admin)
             ->test(Dashboard::class)
@@ -296,13 +346,13 @@ class IncidentReportingRulesTest extends TestCase
                     && $chart['kpis']['response_rate'] === 50.0
                     && $chart['kpis']['referred_incidents'] === 1
                     && $chart['kpis']['referral_rate'] === 50.0
-                    && $chart['kpis']['victims_total'] === 5
-                    && $chart['kpis']['movement_households'] === 4
-                    && $chart['kpis']['movement_people'] === 19
-                    && $chart['kpis']['service_providers'] === 1
+                    && $chart['kpis']['victims_total'] === 15
+                    && $chart['kpis']['movement_households'] === 10
+                    && $chart['kpis']['movement_people'] === 49
+                    && $chart['kpis']['service_providers'] === 2
                     && $orgIndex !== false
                     && $chart['byOrganisation']['validated'][$orgIndex] === 2
-                    && $chart['byOrganisation']['pending'][$orgIndex] === 1;
+                    && $chart['byOrganisation']['pending'][$orgIndex] === 2;
             });
     }
 

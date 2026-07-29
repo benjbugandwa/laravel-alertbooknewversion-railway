@@ -17,7 +17,7 @@ use Throwable;
 
 class Dashboard extends Component
 {
-    private const INCIDENT_CACHE_VERSION = 'validated_v5';
+    private const INCIDENT_CACHE_VERSION = 'validated_v6';
 
     public int $days = 30;
 
@@ -265,31 +265,46 @@ class Dashboard extends Component
             'period_days' => $days,
         ];
 
-        $operationalKpis = self::rememberDashboard('dashboard_operational_kpis_'.$scopeSuffix, function () use ($provinceScope, $territoireScope, $days) {
-            $validatedIncidents = DB::table('incidents');
-            self::applyValidatedIncidentScope($validatedIncidents, $provinceScope, $territoireScope);
-            self::applyIncidentPeriodScope($validatedIncidents, $days);
-            $validatedIncidentCount = (int) $validatedIncidents->count();
+        $operationalKpis = self::rememberDashboard(self::INCIDENT_CACHE_VERSION.'_dashboard_operational_kpis_'.$scopeSuffix, function () use ($provinceScope, $territoireScope, $days) {
+            $validatedIncidentCount = self::safeDashboardValue(function () use ($provinceScope, $territoireScope, $days) {
+                $validatedIncidents = DB::table('incidents');
+                self::applyValidatedIncidentScope($validatedIncidents, $provinceScope, $territoireScope);
+                self::applyIncidentPeriodScope($validatedIncidents, $days);
 
-            $respondedIncidentCount = self::countValidatedIncidentsWithRelatedRows(
-                'reponses',
-                'alerte_id',
-                $provinceScope,
-                $territoireScope,
-                $days
+                return (int) $validatedIncidents->count();
+            }, 0);
+
+            $respondedIncidentCount = self::safeDashboardValue(
+                fn () => self::countValidatedIncidentsWithRelatedRows(
+                    'reponses',
+                    'alerte_id',
+                    $provinceScope,
+                    $territoireScope,
+                    $days
+                ),
+                0
             );
 
-            $referredIncidentCount = self::countValidatedIncidentsWithRelatedRows(
-                'referencements',
-                'id_incident',
-                $provinceScope,
-                $territoireScope,
-                $days
+            $referredIncidentCount = self::safeDashboardValue(
+                fn () => self::countValidatedIncidentsWithRelatedRows(
+                    'referencements',
+                    'id_incident',
+                    $provinceScope,
+                    $territoireScope,
+                    $days
+                ),
+                0
             );
 
-            $victimCount = self::countVictimsForValidatedIncidents($provinceScope, $territoireScope, $days);
-            $movementRow = self::movementSummaryForValidatedIncidents($provinceScope, $territoireScope, $days);
-            $serviceProviders = self::countServiceProviders($provinceScope);
+            $victimCount = self::safeDashboardValue(
+                fn () => self::countVictimsForScope($provinceScope, $territoireScope, $days),
+                0
+            );
+            $movementRow = self::safeDashboardValue(
+                fn () => self::movementSummaryForScope($provinceScope, $territoireScope, $days),
+                (object) ['households' => 0, 'people' => 0]
+            );
+            $serviceProviders = self::safeDashboardValue(fn () => self::countServiceProviders($provinceScope), 0);
 
             return [
                 'validated_incidents' => $validatedIncidentCount,
@@ -478,6 +493,17 @@ class Dashboard extends Component
         }
     }
 
+    private static function firstExistingColumn(string $table, array $columns): ?string
+    {
+        foreach ($columns as $column) {
+            if (self::tableHasColumn($table, $column)) {
+                return $column;
+            }
+        }
+
+        return null;
+    }
+
     private static function countValidatedIncidentsWithRelatedRows(
         string $table,
         string $incidentColumn,
@@ -502,9 +528,9 @@ class Dashboard extends Component
         return (int) $query->count();
     }
 
-    private static function countVictimsForValidatedIncidents(?string $provinceScope, ?string $territoireScope, int $days): int
+    private static function countVictimsForScope(?string $provinceScope, ?string $territoireScope, int $days): int
     {
-        if (! self::tableHasColumns('victimes', ['incident_id'])) {
+        if (! self::tableExists('victimes')) {
             return 0;
         }
 
@@ -525,24 +551,43 @@ class Dashboard extends Component
             return 0;
         }
 
+        $incidentColumn = self::firstExistingColumn('victimes', ['incident_id', 'id_incident', 'alerte_id']);
+        $dateColumn = self::firstExistingColumn('victimes', ['create_at', 'created_at']);
         $sumExpression = $columns
             ->map(fn (string $column) => 'COALESCE(victimes.'.$column.', 0)')
             ->implode(' + ');
 
         $query = DB::table('victimes')
-            ->join('incidents', function (JoinClause $join): void {
-                self::joinColumnMatchesIncidentId($join, 'victimes.incident_id');
-            })
             ->selectRaw('COALESCE(SUM('.$sumExpression.'), 0) as total');
-        self::applyValidatedIncidentScope($query, $provinceScope, $territoireScope);
-        self::applyIncidentPeriodScope($query, $days);
+
+        if ($dateColumn) {
+            $query
+                ->whereNotNull('victimes.'.$dateColumn)
+                ->where('victimes.'.$dateColumn, '>=', now()->subDays($days)->startOfDay());
+        }
+
+        if (
+            $incidentColumn
+            && self::tableHasColumns('incidents', ['id', 'code_province', 'code_territoire'])
+            && ($provinceScope || $territoireScope)
+        ) {
+            $query->leftJoin('incidents', function (JoinClause $join) use ($incidentColumn): void {
+                self::joinColumnMatchesIncidentId($join, 'victimes.'.$incidentColumn);
+            });
+
+            self::applyIncidentScope($query, $provinceScope, $territoireScope);
+        } elseif ($provinceScope && self::tableHasColumns('victimes', ['created_by']) && self::tableHasColumns('users', ['id', 'code_province'])) {
+            $query
+                ->leftJoin('users', 'victimes.created_by', '=', 'users.id')
+                ->where('users.code_province', $provinceScope);
+        }
 
         $row = $query->first();
 
         return (int) ($row->total ?? 0);
     }
 
-    private static function movementSummaryForValidatedIncidents(?string $provinceScope, ?string $territoireScope, int $days): object
+    private static function movementSummaryForScope(?string $provinceScope, ?string $territoireScope, int $days): object
     {
         if (! self::tableHasColumns('mouvements', ['date_mouvement', 'estim_nbre_menages', 'estim_nbre_personnes'])) {
             return (object) ['households' => 0, 'people' => 0];
@@ -556,14 +601,7 @@ class Dashboard extends Component
             ->whereNotNull('mouvements.date_mouvement')
             ->where('mouvements.date_mouvement', '>=', now()->subDays($days)->startOfDay());
 
-        if (self::tableHasColumns('mouvements', ['incident_id'])) {
-            $query->leftJoin('incidents', function (JoinClause $join): void {
-                self::joinColumnMatchesIncidentId($join, 'mouvements.incident_id');
-            });
-            self::applyMovementScope($query, $provinceScope, $territoireScope);
-        } elseif ($provinceScope || $territoireScope) {
-            self::applyStandaloneMovementScope($query, $provinceScope, $territoireScope);
-        }
+        self::applyStandaloneMovementScope($query, $provinceScope, $territoireScope);
 
         return $query->first() ?? (object) ['households' => 0, 'people' => 0];
     }
@@ -576,17 +614,49 @@ class Dashboard extends Component
 
         $query = DB::table('service_providers');
 
-        if (
-            $provinceScope
-            && self::tableHasColumns('service_providers', ['created_by'])
-            && self::tableHasColumns('users', ['id', 'code_province'])
-        ) {
-            $query
-                ->leftJoin('users', 'service_providers.created_by', '=', 'users.id')
-                ->where('users.code_province', $provinceScope);
+        if ($provinceScope) {
+            $query->where(function ($scope) use ($provinceScope) {
+                if (self::tableHasColumn('service_providers', 'provider_location')) {
+                    self::applyProviderLocationScope($scope, $provinceScope);
+                }
+
+                if (
+                    self::tableHasColumns('service_providers', ['created_by'])
+                    && self::tableHasColumns('users', ['id', 'code_province'])
+                ) {
+                    $method = self::tableHasColumn('service_providers', 'provider_location') ? 'orWhereExists' : 'whereExists';
+                    $scope->{$method}(function ($exists) use ($provinceScope) {
+                        $exists
+                            ->selectRaw('1')
+                            ->from('users')
+                            ->whereColumn('users.id', 'service_providers.created_by')
+                            ->where('users.code_province', $provinceScope);
+                    });
+                }
+            });
         }
 
         return (int) $query->count();
+    }
+
+    private static function applyProviderLocationScope(Builder $query, string $provinceScope): void
+    {
+        $query->where(function ($location) use ($provinceScope) {
+            if (DB::connection()->getDriverName() === 'pgsql') {
+                $location
+                    ->whereRaw('service_providers.provider_location::text = ?', [$provinceScope])
+                    ->orWhereRaw('service_providers.provider_location::text = ?', ['"'.$provinceScope.'"'])
+                    ->orWhereRaw('service_providers.provider_location::text LIKE ?', ['%"'.$provinceScope.'"%']);
+
+                return;
+            }
+
+            $location
+                ->whereJsonContains('service_providers.provider_location', $provinceScope)
+                ->orWhere('service_providers.provider_location', $provinceScope)
+                ->orWhere('service_providers.provider_location', '"'.$provinceScope.'"')
+                ->orWhere('service_providers.provider_location', 'like', '%"'.$provinceScope.'"%');
+        });
     }
 
     private static function whereColumnMatchesIncidentId($query, string $relatedColumn): void
