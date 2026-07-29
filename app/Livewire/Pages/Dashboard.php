@@ -9,11 +9,12 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 
 class Dashboard extends Component
 {
-    private const INCIDENT_CACHE_VERSION = 'validated_v4';
+    private const INCIDENT_CACHE_VERSION = 'validated_v5';
 
     public int $days = 30;
 
@@ -126,25 +127,26 @@ class Dashboard extends Component
         $statusSummary = Cache::remember($cacheKeyStatus, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
             $q = DB::table('incidents')
                 ->selectRaw(
-                    'SUM(CASE WHEN incidents.statut_incident = ? THEN 1 ELSE 0 END) as validated,
-                     SUM(CASE WHEN incidents.statut_incident = ? THEN 1 ELSE 0 END) as pending',
-                    [Incident::STATUS_VALIDATED, 'En attente']
+                    'COUNT(*) as total,
+                     SUM(CASE WHEN incidents.statut_incident = ? THEN 1 ELSE 0 END) as validated',
+                    [Incident::STATUS_VALIDATED]
                 );
             self::applyIncidentScope($q, $provinceScope, $territoireScope);
             self::applyIncidentPeriodScope($q, $days);
             $row = $q->first();
+            $total = (int) ($row->total ?? 0);
             $validated = (int) ($row->validated ?? 0);
-            $pending = (int) ($row->pending ?? 0);
+            $notValidated = max(0, $total - $validated);
 
             return [
-                'total' => $validated + $pending,
+                'total' => $total,
                 'validated' => $validated,
-                'pending' => $pending,
+                'not_validated' => $notValidated,
             ];
         });
-        $validatedPercentage = $statusSummary['pending'] === 0
-            ? 100.0
-            : ($statusSummary['total'] > 0 ? round(($statusSummary['validated'] / $statusSummary['total']) * 100, 1) : 0.0);
+        $validatedPercentage = $statusSummary['total'] > 0
+            ? round(($statusSummary['validated'] / $statusSummary['total']) * 100, 1)
+            : 0.0;
 
         $cacheKeyEventType = self::INCIDENT_CACHE_VERSION.'_dashboard_inc_evt_'.$scopeSuffix;
         $byEventType = Cache::remember($cacheKeyEventType, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
@@ -169,6 +171,10 @@ class Dashboard extends Component
 
         $cacheKeyTerritoryMap = self::INCIDENT_CACHE_VERSION.'_dashboard_inc_territory_map_'.$scopeSuffix;
         $territoryMapRows = Cache::remember($cacheKeyTerritoryMap, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
+            if (! self::tableHasColumns('territoires', ['code_territoire', 'nom_territoire', 'code_province', 'latitude', 'longitude'])) {
+                return collect();
+            }
+
             $q = DB::table('incidents')
                 ->join('territoires', 'incidents.code_territoire', '=', 'territoires.code_territoire')
                 ->leftJoin('provinces', 'territoires.code_province', '=', 'provinces.code_province')
@@ -239,62 +245,25 @@ class Dashboard extends Component
             self::applyIncidentPeriodScope($validatedIncidents, $days);
             $validatedIncidentCount = (int) $validatedIncidents->count();
 
-            $withResponses = DB::table('incidents');
-            self::applyValidatedIncidentScope($withResponses, $provinceScope, $territoireScope);
-            self::applyIncidentPeriodScope($withResponses, $days);
-            $withResponses->whereExists(function ($query) {
-                $query->selectRaw('1')
-                    ->from('reponses')
-                    ->whereColumn('reponses.alerte_id', 'incidents.id');
-            });
-            $respondedIncidentCount = (int) $withResponses->count();
+            $respondedIncidentCount = self::countValidatedIncidentsWithRelatedRows(
+                'reponses',
+                'alerte_id',
+                $provinceScope,
+                $territoireScope,
+                $days
+            );
 
-            $withReferrals = DB::table('incidents');
-            self::applyValidatedIncidentScope($withReferrals, $provinceScope, $territoireScope);
-            self::applyIncidentPeriodScope($withReferrals, $days);
-            $withReferrals->whereExists(function ($query) {
-                $query->selectRaw('1')
-                    ->from('referencements')
-                    ->whereColumn('referencements.id_incident', 'incidents.id');
-            });
-            $referredIncidentCount = (int) $withReferrals->count();
+            $referredIncidentCount = self::countValidatedIncidentsWithRelatedRows(
+                'referencements',
+                'id_incident',
+                $provinceScope,
+                $territoireScope,
+                $days
+            );
 
-            $victims = DB::table('victimes')
-                ->join('incidents', 'victimes.incident_id', '=', 'incidents.id')
-                ->selectRaw('
-                    COALESCE(SUM(
-                        COALESCE(victimes.nbre_femme_0a4ans, 0) +
-                        COALESCE(victimes.nbre_femme_5a11ans, 0) +
-                        COALESCE(victimes.nbre_femme_12a17ans, 0) +
-                        COALESCE(victimes.nbre_femme_18a59ans, 0) +
-                        COALESCE(victimes.nbre_femme_6Oansouplus, 0) +
-                        COALESCE(victimes.nbre_homme_0a4ans, 0) +
-                        COALESCE(victimes.nbre_homme_5a11ans, 0) +
-                        COALESCE(victimes.nbre_homme_12a17ans, 0) +
-                        COALESCE(victimes.nbre_homme_18a59ans, 0) +
-                        COALESCE(victimes.nbre_homme_6Oansouplus, 0)
-                    ), 0) as total
-                ');
-            self::applyValidatedIncidentScope($victims, $provinceScope, $territoireScope);
-            self::applyIncidentPeriodScope($victims, $days);
-            $victimCount = (int) ($victims->value('total') ?? 0);
-
-            $movements = DB::table('mouvements')
-                ->leftJoin('incidents', 'mouvements.incident_id', '=', 'incidents.id')
-                ->whereNotNull('mouvements.date_mouvement')
-                ->where('mouvements.date_mouvement', '>=', now()->subDays($days)->startOfDay())
-                ->selectRaw('
-                    COALESCE(SUM(COALESCE(mouvements.estim_nbre_menages, 0)), 0) as households,
-                    COALESCE(SUM(COALESCE(mouvements.estim_nbre_personnes, 0)), 0) as people
-                ');
-            self::applyMovementScope($movements, $provinceScope, $territoireScope);
-            $movementRow = $movements->first();
-
-            $providers = DB::table('service_providers')
-                ->leftJoin('users', 'service_providers.created_by', '=', 'users.id');
-            if ($provinceScope) {
-                $providers->where('users.code_province', $provinceScope);
-            }
+            $victimCount = self::countVictimsForValidatedIncidents($provinceScope, $territoireScope, $days);
+            $movementRow = self::movementSummaryForValidatedIncidents($provinceScope, $territoireScope, $days);
+            $serviceProviders = self::countServiceProviders($provinceScope);
 
             return [
                 'validated_incidents' => $validatedIncidentCount,
@@ -305,11 +274,18 @@ class Dashboard extends Component
                 'victims_total' => $victimCount,
                 'movement_households' => (int) ($movementRow->households ?? 0),
                 'movement_people' => (int) ($movementRow->people ?? 0),
-                'service_providers' => (int) $providers->count(),
+                'service_providers' => $serviceProviders,
             ];
         });
 
         $byOrganisation = Cache::remember('dashboard_inc_by_org_'.$scopeSuffix, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
+            if (
+                ! self::tableHasColumns('users', ['id', 'org_id'])
+                || ! self::tableHasColumns('organisations', ['id', 'org_sigle', 'org_name'])
+            ) {
+                return collect();
+            }
+
             $q = DB::table('incidents')
                 ->leftJoin('users', 'incidents.created_by', '=', 'users.id')
                 ->leftJoin('organisations', 'users.org_id', '=', 'organisations.id')
@@ -340,10 +316,10 @@ class Dashboard extends Component
                 'sum' => $byProvinceTotal,
             ],
             'byStatus' => [
-                'labels' => collect(['Validées', 'En attente']),
-                'data' => collect([$statusSummary['validated'], $statusSummary['pending']]),
+                'labels' => collect(['Validées', 'Non validées']),
+                'data' => collect([$statusSummary['validated'], $statusSummary['not_validated']]),
                 'validated' => $statusSummary['validated'],
-                'pending' => $statusSummary['pending'],
+                'not_validated' => $statusSummary['not_validated'],
                 'total' => $statusSummary['total'],
                 'validatedPercentage' => $validatedPercentage,
             ],
@@ -383,6 +359,118 @@ class Dashboard extends Component
     private static function percentage(int $part, int $total): float
     {
         return $total > 0 ? round(($part / $total) * 100, 1) : 0.0;
+    }
+
+    private static function tableHasColumns(string $table, array $columns): bool
+    {
+        return Schema::hasTable($table) && Schema::hasColumns($table, $columns);
+    }
+
+    private static function countValidatedIncidentsWithRelatedRows(
+        string $table,
+        string $incidentColumn,
+        ?string $provinceScope,
+        ?string $territoireScope,
+        int $days
+    ): int {
+        if (! self::tableHasColumns($table, [$incidentColumn])) {
+            return 0;
+        }
+
+        $query = DB::table('incidents');
+        self::applyValidatedIncidentScope($query, $provinceScope, $territoireScope);
+        self::applyIncidentPeriodScope($query, $days);
+
+        $query->whereExists(function ($exists) use ($table, $incidentColumn) {
+            $exists->selectRaw('1')
+                ->from($table)
+                ->whereColumn($table.'.'.$incidentColumn, 'incidents.id');
+        });
+
+        return (int) $query->count();
+    }
+
+    private static function countVictimsForValidatedIncidents(?string $provinceScope, ?string $territoireScope, int $days): int
+    {
+        if (! self::tableHasColumns('victimes', ['incident_id'])) {
+            return 0;
+        }
+
+        $columns = collect([
+            'nbre_femme_0a4ans',
+            'nbre_femme_5a11ans',
+            'nbre_femme_12a17ans',
+            'nbre_femme_18a59ans',
+            'nbre_femme_6Oansouplus',
+            'nbre_homme_0a4ans',
+            'nbre_homme_5a11ans',
+            'nbre_homme_12a17ans',
+            'nbre_homme_18a59ans',
+            'nbre_homme_6Oansouplus',
+        ])->filter(fn (string $column) => Schema::hasColumn('victimes', $column));
+
+        if ($columns->isEmpty()) {
+            return 0;
+        }
+
+        $sumExpression = $columns
+            ->map(fn (string $column) => 'COALESCE(victimes.'.$column.', 0)')
+            ->implode(' + ');
+
+        $query = DB::table('victimes')
+            ->join('incidents', 'victimes.incident_id', '=', 'incidents.id')
+            ->selectRaw('COALESCE(SUM('.$sumExpression.'), 0) as total');
+        self::applyValidatedIncidentScope($query, $provinceScope, $territoireScope);
+        self::applyIncidentPeriodScope($query, $days);
+
+        $row = $query->first();
+
+        return (int) ($row->total ?? 0);
+    }
+
+    private static function movementSummaryForValidatedIncidents(?string $provinceScope, ?string $territoireScope, int $days): object
+    {
+        if (! self::tableHasColumns('mouvements', ['date_mouvement', 'estim_nbre_menages', 'estim_nbre_personnes'])) {
+            return (object) ['households' => 0, 'people' => 0];
+        }
+
+        $query = DB::table('mouvements')
+            ->selectRaw('
+                COALESCE(SUM(COALESCE(mouvements.estim_nbre_menages, 0)), 0) as households,
+                COALESCE(SUM(COALESCE(mouvements.estim_nbre_personnes, 0)), 0) as people
+            ')
+            ->whereNotNull('mouvements.date_mouvement')
+            ->where('mouvements.date_mouvement', '>=', now()->subDays($days)->startOfDay());
+
+        if (self::tableHasColumns('mouvements', ['incident_id'])) {
+            $query->leftJoin('incidents', 'mouvements.incident_id', '=', 'incidents.id');
+            self::applyMovementScope($query, $provinceScope, $territoireScope);
+        } elseif ($provinceScope || $territoireScope) {
+            self::applyStandaloneMovementScope($query, $provinceScope, $territoireScope);
+        }
+
+        return $query->first() ?? (object) ['households' => 0, 'people' => 0];
+    }
+
+    private static function countServiceProviders(?string $provinceScope): int
+    {
+        if (! Schema::hasTable('service_providers')) {
+            return 0;
+        }
+
+        $query = DB::table('service_providers');
+
+        if (
+            $provinceScope
+            && self::tableHasColumns('service_providers', ['created_by'])
+            && self::tableHasColumns('users', ['id', 'code_province'])
+        ) {
+            $query
+                ->leftJoin('users', 'service_providers.created_by', '=', 'users.id')
+                ->where('users.code_province', $provinceScope);
+        }
+
+        return (int) $query->count();
     }
 
     private static function applyValidatedIncidentScope(
@@ -438,21 +526,63 @@ class Dashboard extends Component
                 $standalone->whereNull('mouvements.incident_id');
 
                 if ($provinceScope) {
-                    $standalone->where(function ($province) use ($provinceScope) {
-                        $province
-                            ->where('mouvements.code_province_prov', $provinceScope)
-                            ->orWhere('mouvements.code_province_accl', $provinceScope);
-                    });
+                    self::applyStandaloneProvinceMovementScope($standalone, $provinceScope);
                 }
 
                 if ($territoireScope) {
-                    $standalone->where(function ($territoire) use ($territoireScope) {
-                        $territoire
-                            ->where('mouvements.code_territoire_prov', $territoireScope)
-                            ->orWhere('mouvements.code_territoire_accl', $territoireScope);
-                    });
+                    self::applyStandaloneTerritoryMovementScope($standalone, $territoireScope);
                 }
             });
+        });
+    }
+
+    private static function applyStandaloneMovementScope(
+        Builder $query,
+        ?string $provinceScope,
+        ?string $territoireScope
+    ): void {
+        if ($provinceScope) {
+            self::applyStandaloneProvinceMovementScope($query, $provinceScope);
+        }
+
+        if ($territoireScope) {
+            self::applyStandaloneTerritoryMovementScope($query, $territoireScope);
+        }
+    }
+
+    private static function applyStandaloneProvinceMovementScope(Builder $query, string $provinceScope): void
+    {
+        $columns = collect(['code_province_prov', 'code_province_accl'])
+            ->filter(fn (string $column) => Schema::hasColumn('mouvements', $column))
+            ->values();
+
+        if ($columns->isEmpty()) {
+            return;
+        }
+
+        $query->where(function ($province) use ($provinceScope, $columns) {
+            foreach ($columns as $index => $column) {
+                $method = $index === 0 ? 'where' : 'orWhere';
+                $province->{$method}('mouvements.'.$column, $provinceScope);
+            }
+        });
+    }
+
+    private static function applyStandaloneTerritoryMovementScope(Builder $query, string $territoireScope): void
+    {
+        $columns = collect(['code_territoire_prov', 'code_territoire_accl'])
+            ->filter(fn (string $column) => Schema::hasColumn('mouvements', $column))
+            ->values();
+
+        if ($columns->isEmpty()) {
+            return;
+        }
+
+        $query->where(function ($territoire) use ($territoireScope, $columns) {
+            foreach ($columns as $index => $column) {
+                $method = $index === 0 ? 'where' : 'orWhere';
+                $territoire->{$method}('mouvements.'.$column, $territoireScope);
+            }
         });
     }
 }

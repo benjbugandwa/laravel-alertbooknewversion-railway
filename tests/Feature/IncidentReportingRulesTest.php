@@ -48,7 +48,7 @@ class IncidentReportingRulesTest extends TestCase
         ]);
     }
 
-    public function test_dashboard_validation_rate_ignores_archived_incidents(): void
+    public function test_dashboard_validation_rate_uses_all_recorded_incidents_as_denominator(): void
     {
         $superadmin = $this->userWithRole('superadmin');
 
@@ -72,19 +72,19 @@ class IncidentReportingRulesTest extends TestCase
                 'nom_territoire' => 'Territoire test',
             ]])
             ->assertViewHas('chart', function (array $chart): bool {
-                return $chart['byStatus']['labels']->all() === ['Validées', 'En attente']
-                    && $chart['byStatus']['data']->all() === [1, 1]
+                return $chart['byStatus']['labels']->all() === ['Validées', 'Non validées']
+                    && $chart['byStatus']['data']->all() === [1, 2]
                     && $chart['byStatus']['validated'] === 1
-                    && $chart['byStatus']['pending'] === 1
-                    && $chart['byStatus']['total'] === 2
-                    && $chart['byStatus']['validatedPercentage'] === 50.0
+                    && $chart['byStatus']['not_validated'] === 2
+                    && $chart['byStatus']['total'] === 3
+                    && $chart['byStatus']['validatedPercentage'] === 33.3
                     && $chart['byProvince']['labels']->all() === ['Province test']
                     && $chart['byProvince']['sum'] === 1
                     && $chart['evolution']['data']->sum() === 1;
             });
     }
 
-    public function test_dashboard_validation_rate_is_full_when_no_incident_is_pending(): void
+    public function test_dashboard_validation_rate_counts_archived_incidents_as_not_validated(): void
     {
         $superadmin = $this->userWithRole('superadmin');
 
@@ -95,9 +95,9 @@ class IncidentReportingRulesTest extends TestCase
             ->test(Dashboard::class)
             ->assertViewHas('chart', function (array $chart): bool {
                 return $chart['byStatus']['validated'] === 1
-                    && $chart['byStatus']['pending'] === 0
-                    && $chart['byStatus']['total'] === 1
-                    && $chart['byStatus']['validatedPercentage'] === 100.0;
+                    && $chart['byStatus']['not_validated'] === 1
+                    && $chart['byStatus']['total'] === 2
+                    && $chart['byStatus']['validatedPercentage'] === 50.0;
             });
     }
 
@@ -284,7 +284,7 @@ class IncidentReportingRulesTest extends TestCase
             ->test(Dashboard::class)
             ->assertViewMissing('Utilisateurs actifs')
             ->assertViewMissing('En attente d’activation')
-            ->assertViewHas('chart', function (array $chart) use ($withoutResponse): bool {
+            ->assertViewHas('chart', function (array $chart): bool {
                 $orgIndex = collect($chart['byOrganisation']['labels'])->search('ORG');
 
                 return $chart['scope']['isSuper'] === false

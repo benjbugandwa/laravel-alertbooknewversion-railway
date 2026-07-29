@@ -69,7 +69,7 @@
                 <div class="text-sm text-gray-600">Taux de validation</div>
                 <div class="mt-2 text-3xl font-bold">{{ number_format($chart['byStatus']['validatedPercentage'] ?? 0, 1) }}%</div>
                 <div class="mt-2 text-xs text-gray-500">
-                    {{ $chart['byStatus']['validated'] ?? 0 }} validées, {{ $chart['byStatus']['pending'] ?? 0 }} en attente
+                    {{ $chart['byStatus']['validated'] ?? 0 }} validées sur {{ $chart['byStatus']['total'] ?? 0 }} alertes enregistrées
                 </div>
             </x-ui-card>
 
@@ -151,7 +151,7 @@
                 <div class="font-semibold">Alertes par statut</div>
                 <div class="mt-1 text-sm text-gray-600">
                     <span class="font-semibold text-gray-900">{{ number_format($chart['byStatus']['validatedPercentage'] ?? 0, 1) }}%</span>
-                    validées ({{ $chart['byStatus']['validated'] ?? 0 }} validées, {{ $chart['byStatus']['pending'] ?? 0 }} en attente)
+                    validées ({{ $chart['byStatus']['validated'] ?? 0 }} sur {{ $chart['byStatus']['total'] ?? 0 }} alertes enregistrées)
                 </div>
                 <div class="mt-3">
                     <canvas id="chartStatus" height="200"></canvas>
