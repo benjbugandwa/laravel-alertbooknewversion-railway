@@ -29,6 +29,7 @@ class User extends Authenticatable
         'password',
         'phone_number',
         'job_title',
+        'user_role',
         'is_active',
         'org_id',
         'avatar_url',
@@ -139,11 +140,29 @@ class User extends Authenticatable
         return $this->roles->first()?->slug;
     }
 
+    /**
+     * Cache statique du résultat pour éviter des appels SQL répétés
+     * (au moins 4–6 appels par requête HTTP sinon).
+     */
+    private static ?bool $rolesSchemaAvailableCache = null;
+
     private function rolesSchemaAvailable(): bool
     {
-        return Schema::hasTable('roles')
-            && Schema::hasColumn('roles', 'slug')
-            && Schema::hasTable('roles_users')
-            && Schema::hasColumns('roles_users', ['user_id', 'role_id']);
+        if (self::$rolesSchemaAvailableCache !== null) {
+            return self::$rolesSchemaAvailableCache;
+        }
+
+        try {
+            self::$rolesSchemaAvailableCache = Schema::hasTable('roles')
+                && Schema::hasColumn('roles', 'slug')
+                && Schema::hasTable('roles_users')
+                && Schema::hasColumns('roles_users', ['user_id', 'role_id']);
+        } catch (\Throwable) {
+            // En cas d'erreur DB (connexion, timeout…), on retourne false
+            // sans propager l'exception pour éviter un HTTP 500.
+            self::$rolesSchemaAvailableCache = false;
+        }
+
+        return self::$rolesSchemaAvailableCache;
     }
 }
