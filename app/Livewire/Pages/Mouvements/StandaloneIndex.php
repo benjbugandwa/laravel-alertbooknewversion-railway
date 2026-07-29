@@ -53,7 +53,7 @@ class StandaloneIndex extends Component
     public function mount()
     {
         $user = Auth::user();
-        if ($user->user_role === 'moniteur') {
+        if ($user->hasRole('moniteur')) {
             abort(403);
         }
 
@@ -191,7 +191,7 @@ class StandaloneIndex extends Component
 
     public function delete($id)
     {
-        if (Auth::user()->user_role !== 'superadmin') {
+        if (! Auth::user()?->hasRole('superadmin')) {
             $this->dispatch('toast', message: 'Action réservée aux administrateurs.', type: 'error');
             return;
         }

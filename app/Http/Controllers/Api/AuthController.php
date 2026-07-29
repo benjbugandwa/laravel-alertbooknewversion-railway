@@ -43,7 +43,7 @@ class AuthController extends Controller
                 'name' => $user->name ?? '',
                 'email' => $user->email,
                 'organization' => $user->organisation ? $user->organisation->nom_org : 'Sans organisation',
-                'user_role' => $user->user_role,
+                'user_role' => $user->effectiveRole(),
                 'code_province' => $user->code_province,
             ],
         ]);

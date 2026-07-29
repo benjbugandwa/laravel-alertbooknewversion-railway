@@ -58,7 +58,7 @@ class IncidentBriefingController extends Controller
         $user = $request->user();
         $provinceCode = $request->query('province');
 
-        if ($user->user_role !== 'superadmin') {
+        if (! $user->hasRole('superadmin')) {
             $provinceCode = $user->code_province;
         }
 
@@ -89,7 +89,7 @@ class IncidentBriefingController extends Controller
     {
         $user = $request->user();
 
-        if ($user->user_role !== 'superadmin' && $incident->code_province !== $user->code_province) {
+        if (! $user->hasRole('superadmin') && $incident->code_province !== $user->code_province) {
             abort(403);
         }
     }

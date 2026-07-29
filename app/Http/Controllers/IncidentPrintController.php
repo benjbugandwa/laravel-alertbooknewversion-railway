@@ -13,7 +13,7 @@ class IncidentPrintController extends Controller
         $user = $request->user();
 
         // Autorisation: superadmin voit tout; sinon seulement sa province
-        if ($user->user_role !== 'superadmin' && $incident->code_province !== $user->code_province) {
+        if (! $user->hasRole('superadmin') && $incident->code_province !== $user->code_province) {
             abort(403);
         }
 

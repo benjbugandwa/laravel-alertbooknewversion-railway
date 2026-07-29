@@ -199,13 +199,13 @@
                                 <label class="text-sm font-medium text-gray-700">Province *</label>
                                 <select wire:model.live="form.code_province_prov"
                                     class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
-                                    @disabled(auth()->user()->user_role !== 'superadmin')>
+                                    @disabled(! auth()->user()?->hasRole('superadmin'))>
                                     <option value="">-- Sélectionner --</option>
                                     @foreach ($provinces as $p)
                                         <option value="{{ $p['code_province'] }}">{{ $p['nom_province'] }}</option>
                                     @endforeach
                                 </select>
-                                @if(auth()->user()->user_role !== 'superadmin')
+                                @if(! auth()->user()?->hasRole('superadmin'))
                                     <div class="text-xs text-gray-500">Lié à la province de l'incident.</div>
                                 @endif
                                 @error('form.code_province_prov') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
@@ -215,13 +215,13 @@
                                 <label class="text-sm font-medium text-gray-700">Territoire *</label>
                                 <select wire:model.live="form.code_territoire_prov"
                                     class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
-                                    @disabled(auth()->user()->user_role !== 'superadmin')>
+                                    @disabled(! auth()->user()?->hasRole('superadmin'))>
                                     <option value="">-- Sélectionner --</option>
                                     @foreach ($territoires_prov as $t)
                                         <option value="{{ $t['code_territoire'] }}">{{ $t['nom_territoire'] }}</option>
                                     @endforeach
                                 </select>
-                                @if(auth()->user()->user_role !== 'superadmin')
+                                @if(! auth()->user()?->hasRole('superadmin'))
                                     <div class="text-xs text-gray-500">Lié au territoire de l'incident.</div>
                                 @endif
                                 @error('form.code_territoire_prov') <div class="text-sm text-red-600">{{ $message }}</div> @enderror

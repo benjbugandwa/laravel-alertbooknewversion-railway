@@ -37,7 +37,7 @@ class Index extends Component
 
     private function isAllowed(): bool
     {
-        return Auth::check() && Auth::user()->user_role === 'superadmin';
+        return Auth::check() && Auth::user()->hasRole('superadmin');
     }
 
     public function mount(): void

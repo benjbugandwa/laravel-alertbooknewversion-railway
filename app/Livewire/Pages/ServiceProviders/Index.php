@@ -80,7 +80,7 @@ class Index extends Component
 
     private function authorizeManage(): void
     {
-        if (!in_array(Auth::user()->user_role, ['superadmin', 'admin'], true)) {
+        if (! Auth::user()?->hasAnyRole(['superadmin', 'admin'])) {
             abort(403);
         }
     }

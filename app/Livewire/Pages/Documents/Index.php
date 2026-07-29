@@ -30,7 +30,7 @@ class Index extends Component
 
     public function canEditOrAdd()
     {
-        return in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur']);
+        return (bool) auth()->user()?->hasAnyRole(['superadmin', 'admin', 'superviseur']);
     }
 
     public function updatingQ()

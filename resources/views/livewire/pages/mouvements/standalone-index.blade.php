@@ -101,7 +101,7 @@
                             <button wire:click="openEdit({{ $m->id }})" class="inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-onu hover:bg-onu/5 transition">
                                 <i data-lucide="edit-3" class="w-4 h-4"></i>
                             </button>
-                            @if(auth()->user()->user_role === 'superadmin')
+                            @if(auth()->user()?->hasRole('superadmin'))
                                 <button wire:confirm="Supprimer ce mouvement ?" wire:click="delete({{ $m->id }})" 
                                     class="inline-flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>

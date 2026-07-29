@@ -36,15 +36,12 @@ class IncidentCaseNotes extends Component
 
     /* ------------------------- Guards & Helpers ------------------------- */
 
-    private function userRole(): string
-    {
-        return Auth::user()->user_role ?? '';
-    }
-
     private function canWrite(): bool
     {
-        return in_array($this->userRole(), ['superadmin', 'admin', 'superviseur'], true);
+        return (bool) Auth::user()?->hasAnyRole(['superadmin', 'admin', 'superviseur']);
     }
+
+
 
     private function incident(): Incident
     {
@@ -59,8 +56,8 @@ class IncidentCaseNotes extends Component
     private function sameProvinceAsUser(Incident $incident): bool
     {
         $u = Auth::user();
-        if (($u->user_role ?? '') === 'superadmin') return true;
-        return ($u->code_province ?? null) && ($u->code_province === $incident->code_province);
+        if ($u?->hasRole('superadmin')) return true;
+        return ($u?->code_province ?? null) && ($u->code_province === $incident->code_province);
     }
 
 

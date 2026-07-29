@@ -7,7 +7,7 @@
         </div>
 
         {{-- Form add note --}}
-        @if (in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur']))
+        @if (auth()->user()?->hasAnyRole(['superadmin', 'admin', 'superviseur']))
             <div class="space-y-3">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                     <div class="md:col-span-2">
@@ -73,7 +73,7 @@
                                 </div>
                             </div>
 
-                            @if (in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur']))
+                            @if (auth()->user()?->hasAnyRole(['superadmin', 'admin', 'superviseur']))
                                 <x-ui-button size="sm" variant="secondary"
                                     wire:click="openEdit({{ $n->id }})">
                                     Éditer

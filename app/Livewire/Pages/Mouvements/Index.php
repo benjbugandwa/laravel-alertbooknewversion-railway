@@ -46,13 +46,13 @@ class Index extends Component
     public function canAddMouvement()
     {
         // moniteur, superviseur, admin, superadmin can add
-        return in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur', 'moniteur']);
+        return (bool) auth()->user()?->hasAnyRole(['superadmin', 'admin', 'superviseur', 'moniteur']);
     }
 
     public function canEditMouvement()
     {
         // superviseur, admin, superadmin can edit
-        return in_array(auth()->user()->user_role, ['superadmin', 'admin', 'superviseur']);
+        return (bool) auth()->user()?->hasAnyRole(['superadmin', 'admin', 'superviseur']);
     }
 
     public function updating($field)
@@ -78,7 +78,7 @@ class Index extends Component
 
     public function updatedFormCodeProvinceProv()
     {
-        if (auth()->user()->user_role !== 'superadmin') {
+        if (! auth()->user()?->hasRole('superadmin')) {
             $this->form->code_province_prov = $this->incident->code_province;
             return;
         }
@@ -89,7 +89,7 @@ class Index extends Component
 
     public function updatedFormCodeTerritoireProv()
     {
-        if (auth()->user()->user_role !== 'superadmin') {
+        if (! auth()->user()?->hasRole('superadmin')) {
             $this->form->code_territoire_prov = $this->incident->code_territoire;
             return;
         }
@@ -200,7 +200,7 @@ class Index extends Component
         $data = $this->form->getData();
         
         // Forcer les valeurs de provenance si l'utilisateur n'est pas superadmin
-        if (auth()->user()->user_role !== 'superadmin') {
+        if (! auth()->user()?->hasRole('superadmin')) {
             $data['code_province_prov'] = $this->incident->code_province;
             $data['code_territoire_prov'] = $this->incident->code_territoire;
         }

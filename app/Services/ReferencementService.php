@@ -26,7 +26,7 @@ class ReferencementService
 
     private function ensureNotMoniteur(User $actor): void
     {
-        if ($actor->user_role === 'moniteur') {
+        if ($actor->hasRole('moniteur')) {
             throw new BusinessRuleException("Un moniteur ne peut pas enregistrer de référencement.");
         }
     }

@@ -16,13 +16,13 @@ Artisan::command('incidents:notify-sla', function () {
 
     $users = User::query()
         ->where('is_active', true)
-        ->whereIn('user_role', ['superadmin', 'admin', 'superviseur'])
+        ->whereHas('roles', fn ($q) => $q->whereIn('slug', ['superadmin', 'admin', 'superviseur']))
         ->get();
 
     $sent = 0;
 
     foreach ($users as $user) {
-        $province = $user->user_role === 'superadmin' ? null : $user->code_province;
+        $province = $user->hasRole('superadmin') ? null : $user->code_province;
         $incidents = $slaService->overdueIncidents($province, null, 20);
 
         if ($incidents->isEmpty()) {

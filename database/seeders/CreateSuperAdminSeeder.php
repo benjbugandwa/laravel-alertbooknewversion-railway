@@ -27,7 +27,5 @@ class CreateSuperAdminSeeder extends Seeder
         $super = Role::where('slug', 'superadmin')->firstOrFail();
 
         $user->roles()->syncWithoutDetaching([$super->id]);
-        $user->user_role = 'superadmin'; // optionnel
-        $user->save();
     }
 }

@@ -37,7 +37,7 @@ class IncidentsExportModal extends Component
     #[Computed]
     public function provinces(): array
     {
-        if (Auth::user()?->user_role === 'superadmin') {
+        if (Auth::user()?->hasRole('superadmin')) {
             return Province::query()
                 ->select(['code_province', 'nom_province'])
                 ->orderBy('nom_province')
@@ -74,7 +74,7 @@ class IncidentsExportModal extends Component
             'include_violences' => ['boolean'],
         ]);
 
-        if ($user->user_role !== 'superadmin') {
+        if (! $user->hasRole('superadmin')) {
             $data['province'] = $user->code_province;
         }
 
