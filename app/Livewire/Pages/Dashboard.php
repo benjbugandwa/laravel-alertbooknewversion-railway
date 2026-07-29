@@ -5,6 +5,7 @@ namespace App\Livewire\Pages;
 use App\Models\Incident;
 use App\Models\Province;
 use App\Services\IncidentSlaService;
+use Closure;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
+use Throwable;
 
 class Dashboard extends Component
 {
@@ -32,29 +34,42 @@ class Dashboard extends Component
         $user = Auth::user();
 
         if ($user->hasRole('superadmin')) {
-            $this->provinces = Province::query()
-                ->orderBy('nom_province')
-                ->get(['code_province', 'nom_province'])
-                ->map(fn (Province $province) => [
-                    'code_province' => (string) $province->code_province,
-                    'nom_province' => (string) $province->nom_province,
-                ])
-                ->all();
+            $this->provinces = self::safeDashboardValue(function () {
+                $query = Province::withoutGlobalScope('active')->orderBy('nom_province');
+
+                if (self::tableHasColumn('provinces', 'is_active')) {
+                    $query->where('is_active', 'YES');
+                }
+
+                return $query
+                    ->get(['code_province', 'nom_province'])
+                    ->map(fn (Province $province) => [
+                        'code_province' => (string) $province->code_province,
+                        'nom_province' => (string) $province->nom_province,
+                    ])
+                    ->all();
+            }, []);
         }
     }
 
     public function updatedSelectedProvince(string $value): void
     {
         if ($value) {
-            $this->territoires = DB::table('territoires')
-                ->where('code_province', $value)
-                ->orderBy('nom_territoire')
-                ->get(['code_territoire', 'nom_territoire'])
-                ->map(fn ($territoire) => [
-                    'code_territoire' => (string) $territoire->code_territoire,
-                    'nom_territoire' => (string) $territoire->nom_territoire,
-                ])
-                ->all();
+            $this->territoires = self::safeDashboardValue(function () use ($value) {
+                if (! self::tableHasColumns('territoires', ['code_province', 'code_territoire', 'nom_territoire'])) {
+                    return [];
+                }
+
+                return DB::table('territoires')
+                    ->where('code_province', $value)
+                    ->orderBy('nom_territoire')
+                    ->get(['code_territoire', 'nom_territoire'])
+                    ->map(fn ($territoire) => [
+                        'code_territoire' => (string) $territoire->code_territoire,
+                        'nom_territoire' => (string) $territoire->nom_territoire,
+                    ])
+                    ->all();
+            }, []);
         } else {
             $this->territoires = [];
         }
@@ -80,15 +95,18 @@ class Dashboard extends Component
         $scopeSuffix = self::scopeCacheSuffix($provinceScope, $territoireScope, $days);
 
         if ($provinceScope) {
-            $provinceName = Province::withoutGlobalScope('active')
-                ->where('code_province', $provinceScope)
-                ->value('nom_province');
+            $provinceName = self::safeDashboardValue(
+                fn () => Province::withoutGlobalScope('active')
+                    ->where('code_province', $provinceScope)
+                    ->value('nom_province'),
+                null
+            );
         }
 
         [$usersActive, $usersPending] = [null, null];
         if ($isSuper) {
             $cacheKeyUsers = 'dashboard_users_'.($provinceScope ?: 'all');
-            [$usersActive, $usersPending] = Cache::remember($cacheKeyUsers, now()->addMinutes(15), function () use ($provinceScope) {
+            [$usersActive, $usersPending] = self::rememberDashboard($cacheKeyUsers, function () use ($provinceScope) {
                 $usersActiveQuery = DB::table('users')->where('is_active', true);
                 $usersPendingQuery = DB::table('users')->where('is_active', false);
 
@@ -101,19 +119,20 @@ class Dashboard extends Component
                     (int) $usersActiveQuery->count(),
                     (int) $usersPendingQuery->count(),
                 ];
-            });
+            }, [0, 0]);
         }
 
         $cacheKeyProvince = self::INCIDENT_CACHE_VERSION.'_dashboard_inc_prov_'.$scopeSuffix;
-        $byProvince = Cache::remember($cacheKeyProvince, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
+        $byProvince = self::rememberDashboard($cacheKeyProvince, function () use ($provinceScope, $territoireScope, $days) {
+            $provinceLabel = "COALESCE(provinces.nom_province, 'N/A')";
             $q = DB::table('incidents')
                 ->leftJoin('provinces', 'incidents.code_province', '=', 'provinces.code_province')
-                ->selectRaw("COALESCE(provinces.nom_province, 'N/A') as label, COUNT(*) as total");
+                ->selectRaw($provinceLabel.' as label, COUNT(*) as total');
             self::applyValidatedIncidentScope($q, $provinceScope, $territoireScope);
             self::applyIncidentPeriodScope($q, $days);
 
-            return $q->groupBy('label')->orderByDesc('total')->limit(15)->get();
-        });
+            return $q->groupByRaw($provinceLabel)->orderByDesc('total')->limit(15)->get();
+        }, collect());
 
         $byProvinceTotal = (int) $byProvince->sum('total');
         $byProvinceTable = $byProvince->map(function ($row) use ($byProvinceTotal) {
@@ -125,7 +144,7 @@ class Dashboard extends Component
         })->values();
 
         $cacheKeyStatus = self::INCIDENT_CACHE_VERSION.'_dashboard_inc_status_rate_'.$scopeSuffix;
-        $statusSummary = Cache::remember($cacheKeyStatus, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
+        $statusSummary = self::rememberDashboard($cacheKeyStatus, function () use ($provinceScope, $territoireScope, $days) {
             $q = DB::table('incidents')
                 ->selectRaw(
                     'COUNT(*) as total,
@@ -144,34 +163,40 @@ class Dashboard extends Component
                 'validated' => $validated,
                 'not_validated' => $notValidated,
             ];
-        });
+        }, [
+            'total' => 0,
+            'validated' => 0,
+            'not_validated' => 0,
+        ]);
         $validatedPercentage = $statusSummary['total'] > 0
             ? round(($statusSummary['validated'] / $statusSummary['total']) * 100, 1)
             : 0.0;
 
         $cacheKeyEventType = self::INCIDENT_CACHE_VERSION.'_dashboard_inc_evt_'.$scopeSuffix;
-        $byEventType = Cache::remember($cacheKeyEventType, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
+        $byEventType = self::rememberDashboard($cacheKeyEventType, function () use ($provinceScope, $territoireScope, $days) {
+            $eventLabel = "COALESCE(evenements.nom_evenement, incidents.code_evenement, 'N/A')";
             $q = DB::table('incidents')
                 ->leftJoin('evenements', 'incidents.code_evenement', '=', 'evenements.code_evenement')
-                ->selectRaw("COALESCE(evenements.nom_evenement, incidents.code_evenement, 'N/A') as label, COUNT(*) as total");
+                ->selectRaw($eventLabel.' as label, COUNT(*) as total');
             self::applyValidatedIncidentScope($q, $provinceScope, $territoireScope);
             self::applyIncidentPeriodScope($q, $days);
 
-            return $q->groupBy('label')->orderByDesc('total')->limit(15)->get();
-        });
+            return $q->groupByRaw($eventLabel)->orderByDesc('total')->limit(15)->get();
+        }, collect());
 
         $cacheKeyEvo = self::INCIDENT_CACHE_VERSION.'_dashboard_inc_evo_'.$scopeSuffix;
-        $evolution = Cache::remember($cacheKeyEvo, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
+        $evolution = self::rememberDashboard($cacheKeyEvo, function () use ($provinceScope, $territoireScope, $days) {
+            $incidentDay = 'DATE(incidents.date_incident)';
             $q = DB::table('incidents')
-                ->selectRaw('DATE(incidents.date_incident) as d, COUNT(*) as total');
+                ->selectRaw($incidentDay.' as d, COUNT(*) as total');
             self::applyValidatedIncidentScope($q, $provinceScope, $territoireScope);
             self::applyIncidentPeriodScope($q, $days);
 
-            return $q->groupBy('d')->orderBy('d')->get();
-        });
+            return $q->groupByRaw($incidentDay)->orderBy('d')->get();
+        }, collect());
 
         $cacheKeyTerritoryMap = self::INCIDENT_CACHE_VERSION.'_dashboard_inc_territory_map_'.$scopeSuffix;
-        $territoryMapRows = Cache::remember($cacheKeyTerritoryMap, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
+        $territoryMapRows = self::rememberDashboard($cacheKeyTerritoryMap, function () use ($provinceScope, $territoireScope, $days) {
             if (! self::tableHasColumns('territoires', ['code_territoire', 'nom_territoire', 'code_province', 'latitude', 'longitude'])) {
                 return collect();
             }
@@ -206,7 +231,7 @@ class Dashboard extends Component
                 ->orderBy('territoires.nom_territoire')
                 ->orderByDesc('total')
                 ->get();
-        });
+        }, collect());
 
         $territoryPoints = $territoryMapRows
             ->groupBy('code_territoire')
@@ -240,7 +265,7 @@ class Dashboard extends Component
             'period_days' => $days,
         ];
 
-        $operationalKpis = Cache::remember('dashboard_operational_kpis_'.$scopeSuffix, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
+        $operationalKpis = self::rememberDashboard('dashboard_operational_kpis_'.$scopeSuffix, function () use ($provinceScope, $territoireScope, $days) {
             $validatedIncidents = DB::table('incidents');
             self::applyValidatedIncidentScope($validatedIncidents, $provinceScope, $territoireScope);
             self::applyIncidentPeriodScope($validatedIncidents, $days);
@@ -277,9 +302,9 @@ class Dashboard extends Component
                 'movement_people' => (int) ($movementRow->people ?? 0),
                 'service_providers' => $serviceProviders,
             ];
-        });
+        }, self::emptyOperationalKpis());
 
-        $byOrganisation = Cache::remember('dashboard_inc_by_org_'.$scopeSuffix, now()->addMinutes(15), function () use ($provinceScope, $territoireScope, $days) {
+        $byOrganisation = self::rememberDashboard('dashboard_inc_by_org_'.$scopeSuffix, function () use ($provinceScope, $territoireScope, $days) {
             if (
                 ! self::tableHasColumns('users', ['id', 'org_id'])
                 || ! self::tableHasColumns('organisations', ['id', 'org_sigle', 'org_name'])
@@ -287,10 +312,11 @@ class Dashboard extends Component
                 return collect();
             }
 
+            $organisationLabel = "COALESCE(organisations.org_sigle, organisations.org_name, 'Non renseignee')";
             $q = DB::table('incidents')
                 ->leftJoin('users', 'incidents.created_by', '=', 'users.id')
                 ->leftJoin('organisations', 'users.org_id', '=', 'organisations.id')
-                ->selectRaw("COALESCE(organisations.org_sigle, organisations.org_name, 'Non renseignee') as label")
+                ->selectRaw($organisationLabel.' as label')
                 ->selectRaw('SUM(CASE WHEN incidents.statut_incident = ? THEN 1 ELSE 0 END) as validated', [Incident::STATUS_VALIDATED])
                 ->selectRaw("SUM(CASE WHEN incidents.statut_incident = 'En attente' THEN 1 ELSE 0 END) as pending");
             self::applyIncidentScope($q, $provinceScope, $territoireScope);
@@ -298,11 +324,11 @@ class Dashboard extends Component
             $q->whereIn('incidents.statut_incident', [Incident::STATUS_VALIDATED, 'En attente']);
 
             return $q
-                ->groupBy('label')
+                ->groupByRaw($organisationLabel)
                 ->orderByRaw('SUM(CASE WHEN incidents.statut_incident IN (?, ?) THEN 1 ELSE 0 END) DESC', [Incident::STATUS_VALIDATED, 'En attente'])
                 ->limit(12)
                 ->get();
-        });
+        }, collect());
 
         $chart = [
             'users' => [
@@ -345,10 +371,14 @@ class Dashboard extends Component
                 'code_territoire' => $territoireScope,
             ],
         ];
+        $slaSummary = self::safeDashboardValue(
+            fn () => $slaService->summary($provinceScope, $territoireScope),
+            self::emptySlaSummary()
+        );
 
         return view('livewire.pages.dashboard', [
             'chart' => $chart,
-            'slaSummary' => $slaService->summary($provinceScope, $territoireScope),
+            'slaSummary' => $slaSummary,
         ]);
     }
 
@@ -362,9 +392,90 @@ class Dashboard extends Component
         return $total > 0 ? round(($part / $total) * 100, 1) : 0.0;
     }
 
+    private static function rememberDashboard(string $key, Closure $callback, mixed $fallback): mixed
+    {
+        try {
+            return Cache::remember($key, now()->addMinutes(15), $callback);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
+        try {
+            return $callback();
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return value($fallback);
+        }
+    }
+
+    private static function safeDashboardValue(Closure $callback, mixed $fallback): mixed
+    {
+        try {
+            return $callback();
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return value($fallback);
+        }
+    }
+
+    private static function emptyOperationalKpis(): array
+    {
+        return [
+            'validated_incidents' => 0,
+            'responded_incidents' => 0,
+            'response_rate' => 0.0,
+            'referred_incidents' => 0,
+            'referral_rate' => 0.0,
+            'victims_total' => 0,
+            'movement_households' => 0,
+            'movement_people' => 0,
+            'service_providers' => 0,
+        ];
+    }
+
+    private static function emptySlaSummary(): array
+    {
+        return [
+            'validation' => 0,
+            'response' => 0,
+            'referral' => 0,
+            'total_overdue_incidents' => 0,
+        ];
+    }
+
     private static function tableHasColumns(string $table, array $columns): bool
     {
-        return Schema::hasTable($table) && Schema::hasColumns($table, $columns);
+        try {
+            return self::tableExists($table) && Schema::hasColumns($table, $columns);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
+    }
+
+    private static function tableExists(string $table): bool
+    {
+        try {
+            return Schema::hasTable($table);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
+    }
+
+    private static function tableHasColumn(string $table, string $column): bool
+    {
+        try {
+            return Schema::hasColumn($table, $column);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
     }
 
     private static function countValidatedIncidentsWithRelatedRows(
@@ -408,7 +519,7 @@ class Dashboard extends Component
             'nbre_homme_12a17ans',
             'nbre_homme_18a59ans',
             'nbre_homme_6Oansouplus',
-        ])->filter(fn (string $column) => Schema::hasColumn('victimes', $column));
+        ])->filter(fn (string $column) => self::tableHasColumn('victimes', $column));
 
         if ($columns->isEmpty()) {
             return 0;
@@ -459,7 +570,7 @@ class Dashboard extends Component
 
     private static function countServiceProviders(?string $provinceScope): int
     {
-        if (! Schema::hasTable('service_providers')) {
+        if (! self::tableExists('service_providers')) {
             return 0;
         }
 
@@ -587,7 +698,7 @@ class Dashboard extends Component
     private static function applyStandaloneProvinceMovementScope(Builder $query, string $provinceScope): void
     {
         $columns = collect(['code_province_prov', 'code_province_accl'])
-            ->filter(fn (string $column) => Schema::hasColumn('mouvements', $column))
+            ->filter(fn (string $column) => self::tableHasColumn('mouvements', $column))
             ->values();
 
         if ($columns->isEmpty()) {
@@ -605,7 +716,7 @@ class Dashboard extends Component
     private static function applyStandaloneTerritoryMovementScope(Builder $query, string $territoireScope): void
     {
         $columns = collect(['code_territoire_prov', 'code_territoire_accl'])
-            ->filter(fn (string $column) => Schema::hasColumn('mouvements', $column))
+            ->filter(fn (string $column) => self::tableHasColumn('mouvements', $column))
             ->values();
 
         if ($columns->isEmpty()) {

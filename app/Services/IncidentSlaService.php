@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class IncidentSlaService
 {
@@ -119,7 +120,13 @@ class IncidentSlaService
 
     private function canCountRelation(string $table, string $incidentColumn): bool
     {
-        return Schema::hasTable($table) && Schema::hasColumn($table, $incidentColumn);
+        try {
+            return Schema::hasTable($table) && Schema::hasColumn($table, $incidentColumn);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
     }
 
     private function relatedCount(string $table, string $incidentColumn, Incident $incident): int
@@ -128,9 +135,15 @@ class IncidentSlaService
             return 0;
         }
 
-        return (int) DB::table($table)
-            ->where($incidentColumn, $incident->getKey())
-            ->count();
+        try {
+            return (int) DB::table($table)
+                ->where($incidentColumn, $incident->getKey())
+                ->count();
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return 0;
+        }
     }
 
     private function buildItem(string $label, bool $active, CarbonInterface $dueAt, string $description): array
