@@ -62,7 +62,7 @@
             <x-ui-card>
                 <div class="text-sm text-gray-600">Alertes validées</div>
                 <div class="mt-2 text-3xl font-bold">{{ collect($chart['evolution']['data'])->sum() }}</div>
-                <div class="mt-2 text-xs text-gray-500">Derniers {{ $this->days }} jours</div>
+                <div class="mt-2 text-xs text-gray-500">Derniers {{ $days }} jours</div>
             </x-ui-card>
 
             <x-ui-card>
@@ -141,7 +141,7 @@
             x-on:livewire:navigated.window="rebuild(@js($chart))"
             class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <x-ui-card class="lg:col-span-2">
-                <div class="font-semibold">Évolution des alertes ({{ $this->days }} jours)</div>
+                <div class="font-semibold">Évolution des alertes ({{ $days }} jours)</div>
                 <div class="mt-3">
                     <canvas id="chartEvolution" height="80"></canvas>
                 </div>
@@ -265,7 +265,6 @@
                 </div>
             </x-ui-card>
         </div>
-    </div>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
