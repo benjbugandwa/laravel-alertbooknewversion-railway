@@ -7,6 +7,7 @@ use App\Livewire\Forms\ReponseForm;
 use App\Models\Incident;
 use App\Models\Organisation;
 use App\Models\Reponse;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Title;
@@ -64,30 +65,18 @@ class Index extends Component
         $user = Auth::user();
         $this->standaloneMode = request()->boolean('standalone');
 
-        $incidentsQuery = Incident::orderByDesc('created_at')
-            ->where('statut_incident', '!=', 'En attente');
+        $incidentsQuery = $this->incidentsVisibleTo($user);
 
-        if (! $user->hasRole('superadmin') && $user->code_province) {
-            $incidentsQuery->where('code_province', $user->code_province);
-        }
-
-        $this->all_incidents = $incidentsQuery
+        $this->all_incidents = (clone $incidentsQuery)
             ->get(['id', 'code_incident', 'localite', 'date_incident'])
             ->toArray();
 
         if (! $this->standaloneMode && $incident) {
-            $this->incident = Incident::find($incident);
+            $this->incident = (clone $incidentsQuery)->find($incident);
         }
 
         if (! $this->standaloneMode && ! $this->incident) {
-            $first = Incident::orderByDesc('created_at')
-                ->where('statut_incident', '!=', 'En attente');
-
-            if (! $user->hasRole('superadmin') && $user->code_province) {
-                $first->where('code_province', $user->code_province);
-            }
-
-            $this->incident = $first->first();
+            $this->incident = (clone $incidentsQuery)->first();
         }
 
         if ($this->incident) {
@@ -102,17 +91,27 @@ class Index extends Component
             ->toArray();
     }
 
-    public function updatedSelectedIncidentId($value)
+    public function updatedSelectedIncidentId(?string $value): void
     {
         if ($value === self::STANDALONE_SELECTION) {
-            return redirect()->route('reponses.index', ['standalone' => 1]);
+            $this->standaloneMode = true;
+            $this->incident = null;
+            $this->resetPage();
+
+            return;
         }
 
-        if ($value) {
-            return redirect()->route('reponses.index', ['incident' => $value]);
+        $this->standaloneMode = false;
+        $this->incident = $value
+            ? $this->incidentsVisibleTo(Auth::user())->find($value)
+            : null;
+
+        if ($value && ! $this->incident) {
+            $this->selectedIncidentId = null;
+            $this->dispatch('toast', message: 'Incident introuvable ou non autorisé.', type: 'error');
         }
 
-        return redirect()->route('reponses.index');
+        $this->resetPage();
     }
 
     public function canWrite(): bool
@@ -378,5 +377,16 @@ class Index extends Component
     {
         return $incident !== null
             && in_array($incident->statut_incident, ['Validé', 'Cloturée'], true);
+    }
+
+    private function incidentsVisibleTo($user): Builder
+    {
+        return Incident::query()
+            ->where('statut_incident', '!=', 'En attente')
+            ->when(
+                ! $user->hasRole('superadmin') && $user->code_province,
+                fn (Builder $query) => $query->where('code_province', $user->code_province)
+            )
+            ->orderByDesc('created_at');
     }
 }
