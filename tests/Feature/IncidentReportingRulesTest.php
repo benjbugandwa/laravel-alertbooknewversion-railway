@@ -598,6 +598,32 @@ class IncidentReportingRulesTest extends TestCase
         ]);
     }
 
+    public function test_response_incident_selector_displays_the_selected_incident_without_redirecting(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $selectedIncident = $this->incidentFor($admin, Incident::STATUS_VALIDATED, 'ALT-RESPONSES');
+
+        DB::table('reponses')->insert([
+            'num_reponse' => 'REP-SELECTOR',
+            'date_reponse' => now()->toDateString(),
+            'fournie_par' => 'Organisation sélectionnée',
+            'type_reponse' => 'Humanitaire',
+            'secteurs_couverts' => json_encode(['Protection']),
+            'alerte_id' => $selectedIncident->id,
+            'create_at' => now()->toDateString(),
+            'created_by' => $admin->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(ReponsesIndex::class)
+            ->set('selectedIncidentId', $selectedIncident->id)
+            ->assertNoRedirect()
+            ->assertSet('incident.id', $selectedIncident->id)
+            ->assertSee('Organisation sélectionnée');
+    }
+
     public function test_unassigned_incident_without_violence_is_assigned_to_supervisor_when_validated(): void
     {
         $supervisor = $this->userWithRole('superviseur');
