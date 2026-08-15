@@ -14,6 +14,8 @@ class ExampleTest extends TestCase
     {
         $response = $this->get('/');
 
-        $response->assertStatus(200);
+        $response
+            ->assertStatus(200)
+            ->assertSee("Ce site est actuellement indisponible. Veuillez réessayer plus tard ou contactez l'administrateur du site", false);
     }
 }
